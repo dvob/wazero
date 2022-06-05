@@ -1,16 +1,7 @@
-// Package wasm_exec contains imports needed by Go's misc/wasm/wasm_exec.js
-// under the module name "go".
+// Package wasm_exec contains imports and state needed by wasm go compiles when
+// GOOS=js and GOARCH=wasm.
 //
-// Signature translation
-//
-// Except for "debug", functions in the "go" module all have a single uint32
-// parameter `sp`. This is the base memory offset to read and write parameters
-// to the stack (at 8 byte offsets). Ex If the corresponding Go signature has
-// two parameters, they would be read from sp+8 and sp+16 respectively.
-//
-// See https://github.com/golang/go/blob/master/misc/wasm/wasm_exec.js
-// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/os_js.go
-// See https://docs.google.com/document/d/131vjr4DH6JFnb-blm_uRdaC0_Nv3OUwjEY5qVCxCup4
+// See /wasm_exec/README.md for a deeper dive.
 package wasm_exec
 
 import (
