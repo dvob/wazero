@@ -2,8 +2,6 @@ package spectest
 
 import (
 	"embed"
-	"fmt"
-	"math"
 	"path"
 	"runtime"
 	"strings"
@@ -50,10 +48,6 @@ func TestCompiler(t *testing.T) {
 }
 
 func TestInterpreter(t *testing.T) {
-	v := math.MinInt8
-	uv := byte(v)
-	fmt.Printf("%x\n", uv)
-
 	spectest.Run(t, testcases, interpreter.NewEngine, enabledFeatures, func(jsonname string) bool {
 		// TODO: remove after SIMD proposal
 		if strings.Contains(jsonname, "simd") {
@@ -71,10 +65,10 @@ func TestInterpreter(t *testing.T) {
 				"simd_f32x4.json",
 				"simd_f64x2.json",
 				"simd_i16x8_arith2.json",
-				"sid_i8x16_arith2.json",
+				"simd_i8x16_arith2.json",
 				"simd_i32x4_arith2.json",
 				"simd_i64x2_arith2.json":
-				return false
+				return true
 			default:
 				return false // others not supported, yet!
 			}

@@ -659,6 +659,17 @@ func (e *engine) lowerIR(ir *wazeroir.CompilationResult) (*code, error) {
 			op.b1 = o.Shape
 		case *wazeroir.OperationV128Sqrt:
 			op.b1 = o.Shape
+		case *wazeroir.OperationV128Abs:
+			op.b1 = o.Shape
+		case *wazeroir.OperationV128Popcnt:
+		case *wazeroir.OperationV128Min:
+			op.b1 = o.Shape
+			op.b3 = o.Signed
+		case *wazeroir.OperationV128Max:
+			op.b1 = o.Shape
+			op.b3 = o.Signed
+		case *wazeroir.OperationV128AvgrU:
+			op.b1 = o.Shape
 		default:
 			panic(fmt.Errorf("BUG: unimplemented operation %s", op.kind.String()))
 		}
@@ -3216,9 +3227,402 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			ce.pushValue(lo)
 			ce.pushValue(hi)
 			frame.pc++
+		case wazeroir.OperationKindV128Abs:
+			hi, lo := ce.popValue(), ce.popValue()
+			switch op.b1 {
+			case wazeroir.ShapeI8x16:
+				lo = uint64(i8Abs(byte(lo))) | (uint64(i8Abs(byte(lo>>8))) << 8) |
+					(uint64(i8Abs(byte(lo>>16))) << 16) | (uint64(i8Abs(byte(lo>>24))) << 24) |
+					(uint64(i8Abs(byte(lo>>32))) << 32) | (uint64(i8Abs(byte(lo>>40))) << 40) |
+					(uint64(i8Abs(byte(lo>>48))) << 48) | (uint64(i8Abs(byte(lo>>56))) << 56)
+				hi = uint64(i8Abs(byte(hi))) | (uint64(i8Abs(byte(hi>>8))) << 8) |
+					(uint64(i8Abs(byte(hi>>16))) << 16) | (uint64(i8Abs(byte(hi>>24))) << 24) |
+					(uint64(i8Abs(byte(hi>>32))) << 32) | (uint64(i8Abs(byte(hi>>40))) << 40) |
+					(uint64(i8Abs(byte(hi>>48))) << 48) | (uint64(i8Abs(byte(hi>>56))) << 56)
+			case wazeroir.ShapeI16x8:
+				hi = uint64(i16Abs(uint16(hi))) | (uint64(i16Abs(uint16(hi>>16))) << 16) |
+					(uint64(i16Abs(uint16(hi>>32))) << 32) | (uint64(i16Abs(uint16(hi>>48))) << 48)
+				lo = uint64(i16Abs(uint16(lo))) | (uint64(i16Abs(uint16(lo>>16))) << 16) |
+					(uint64(i16Abs(uint16(lo>>32))) << 32) | (uint64(i16Abs(uint16(lo>>48))) << 48)
+			case wazeroir.ShapeI32x4:
+				hi = uint64(i32Abs(uint32(hi))) | (uint64(i32Abs(uint32(hi>>32))) << 32)
+				lo = uint64(i32Abs(uint32(lo))) | (uint64(i32Abs(uint32(lo>>32))) << 32)
+			case wazeroir.ShapeI64x2:
+				if hi < 0 {
+					hi = -hi
+				}
+				if lo < 0 {
+					lo = -lo
+				}
+			case wazeroir.ShapeF32x4:
+				hi = uint64(math.Float32bits(float32(math.Abs(float64(math.Float32frombits(uint32(hi))))))) |
+					(uint64(math.Float32bits(float32(math.Abs(float64(math.Float32frombits(uint32(hi>>32))))))) << 32)
+				lo = uint64(math.Float32bits(float32(math.Abs(float64(math.Float32frombits(uint32(lo))))))) |
+					(uint64(math.Float32bits(float32(math.Abs(float64(math.Float32frombits(uint32(lo>>32))))))) << 32)
+			case wazeroir.ShapeF64x2:
+				hi = math.Float64bits(math.Abs(math.Float64frombits(hi)))
+				lo = math.Float64bits(math.Abs(math.Float64frombits(lo)))
+			}
+			ce.pushValue(lo)
+			ce.pushValue(hi)
+			frame.pc++
+		case wazeroir.OperationKindV128Popcnt:
+			hi, lo := ce.popValue(), ce.popValue()
+			var retLo, retHi uint64
+			for i := 0; i < 16; i++ {
+				var v byte
+				if i < 8 {
+					v = byte(lo >> (i * 8))
+				} else {
+					v = byte(hi >> ((i - 8) * 8))
+				}
+
+				var cnt uint64
+				for i := 0; i < 8; i++ {
+					if (v>>i)&0b1 != 0 {
+						cnt++
+					}
+				}
+
+				if i < 8 {
+					retLo |= cnt << (i * 8)
+				} else {
+					retHi |= cnt << ((i - 8) * 8)
+				}
+			}
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
+		case wazeroir.OperationKindV128Min:
+			x2hi, x2lo := ce.popValue(), ce.popValue()
+			x1hi, x1lo := ce.popValue(), ce.popValue()
+			var retLo, retHi uint64
+			switch op.b1 {
+			case wazeroir.ShapeI8x16:
+				if op.b3 { // signed
+					retLo = uint64(i8MinS(uint8(x1lo>>8), uint8(x2lo>>8)))<<8 | uint64(i8MinS(uint8(x1lo), uint8(x2lo))) |
+						uint64(i8MinS(uint8(x1lo>>24), uint8(x2lo>>24)))<<24 | uint64(i8MinS(uint8(x1lo>>16), uint8(x2lo>>16)))<<16 |
+						uint64(i8MinS(uint8(x1lo>>40), uint8(x2lo>>40)))<<40 | uint64(i8MinS(uint8(x1lo>>32), uint8(x2lo>>32)))<<32 |
+						uint64(i8MinS(uint8(x1lo>>56), uint8(x2lo>>56)))<<56 | uint64(i8MinS(uint8(x1lo>>48), uint8(x2lo>>48)))<<48
+					retHi = uint64(i8MinS(uint8(x1hi>>8), uint8(x2hi>>8)))<<8 | uint64(i8MinS(uint8(x1hi), uint8(x2hi))) |
+						uint64(i8MinS(uint8(x1hi>>24), uint8(x2hi>>24)))<<24 | uint64(i8MinS(uint8(x1hi>>16), uint8(x2hi>>16)))<<16 |
+						uint64(i8MinS(uint8(x1hi>>40), uint8(x2hi>>40)))<<40 | uint64(i8MinS(uint8(x1hi>>32), uint8(x2hi>>32)))<<32 |
+						uint64(i8MinS(uint8(x1hi>>56), uint8(x2hi>>56)))<<56 | uint64(i8MinS(uint8(x1hi>>48), uint8(x2hi>>48)))<<48
+				} else {
+					retLo = uint64(i8MinU(uint8(x1lo>>8), uint8(x2lo>>8)))<<8 | uint64(i8MinU(uint8(x1lo), uint8(x2lo))) |
+						uint64(i8MinU(uint8(x1lo>>24), uint8(x2lo>>24)))<<24 | uint64(i8MinU(uint8(x1lo>>16), uint8(x2lo>>16)))<<16 |
+						uint64(i8MinU(uint8(x1lo>>40), uint8(x2lo>>40)))<<40 | uint64(i8MinU(uint8(x1lo>>32), uint8(x2lo>>32)))<<32 |
+						uint64(i8MinU(uint8(x1lo>>56), uint8(x2lo>>56)))<<56 | uint64(i8MinU(uint8(x1lo>>48), uint8(x2lo>>48)))<<48
+					retHi = uint64(i8MinU(uint8(x1hi>>8), uint8(x2hi>>8)))<<8 | uint64(i8MinU(uint8(x1hi), uint8(x2hi))) |
+						uint64(i8MinU(uint8(x1hi>>24), uint8(x2hi>>24)))<<24 | uint64(i8MinU(uint8(x1hi>>16), uint8(x2hi>>16)))<<16 |
+						uint64(i8MinU(uint8(x1hi>>40), uint8(x2hi>>40)))<<40 | uint64(i8MinU(uint8(x1hi>>32), uint8(x2hi>>32)))<<32 |
+						uint64(i8MinU(uint8(x1hi>>56), uint8(x2hi>>56)))<<56 | uint64(i8MinU(uint8(x1hi>>48), uint8(x2hi>>48)))<<48
+				}
+			case wazeroir.ShapeI16x8:
+				if op.b3 { // signed
+					retLo = uint64(i16MinS(uint16(x1lo), uint16(x2lo))) |
+						uint64(i16MinS(uint16(x1lo>>16), uint16(x2lo>>16)))<<16 |
+						uint64(i16MinS(uint16(x1lo>>32), uint16(x2lo>>32)))<<32 |
+						uint64(i16MinS(uint16(x1lo>>48), uint16(x2lo>>48)))<<48
+					retHi = uint64(i16MinS(uint16(x1hi), uint16(x2hi))) |
+						uint64(i16MinS(uint16(x1hi>>16), uint16(x2hi>>16)))<<16 |
+						uint64(i16MinS(uint16(x1hi>>32), uint16(x2hi>>32)))<<32 |
+						uint64(i16MinS(uint16(x1hi>>48), uint16(x2hi>>48)))<<48
+				} else {
+					retLo = uint64(i16MinU(uint16(x1lo), uint16(x2lo))) |
+						uint64(i16MinU(uint16(x1lo>>16), uint16(x2lo>>16)))<<16 |
+						uint64(i16MinU(uint16(x1lo>>32), uint16(x2lo>>32)))<<32 |
+						uint64(i16MinU(uint16(x1lo>>48), uint16(x2lo>>48)))<<48
+					retHi = uint64(i16MinU(uint16(x1hi), uint16(x2hi))) |
+						uint64(i16MinU(uint16(x1hi>>16), uint16(x2hi>>16)))<<16 |
+						uint64(i16MinU(uint16(x1hi>>32), uint16(x2hi>>32)))<<32 |
+						uint64(i16MinU(uint16(x1hi>>48), uint16(x2hi>>48)))<<48
+				}
+			case wazeroir.ShapeI32x4:
+				if op.b3 { // signed
+					retLo = uint64(i32MinU(uint32(x1lo), uint32(x2lo))) |
+						uint64(i32MinU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
+					retHi = uint64(i32MinU(uint32(x1hi), uint32(x2hi))) |
+						uint64(i32MinU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
+				} else {
+					retLo = uint64(i32MinU(uint32(x1lo), uint32(x2lo))) |
+						uint64(i32MinU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
+					retHi = uint64(i32MinU(uint32(x1hi), uint32(x2hi))) |
+						uint64(i32MinU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
+				}
+			case wazeroir.ShapeF32x4:
+				retHi = math.Float64bits(moremath.WasmCompatMin(
+					float64(math.Float32frombits(uint32(x1hi))),
+					float64(math.Float32frombits(uint32(x2hi))),
+				)) | (math.Float64bits(moremath.WasmCompatMin(
+					float64(math.Float32frombits(uint32(x1hi>>32))),
+					float64(math.Float32frombits(uint32(x2hi>>32))),
+				)) << 32)
+				retLo = math.Float64bits(moremath.WasmCompatMin(
+					float64(math.Float32frombits(uint32(x1lo))),
+					float64(math.Float32frombits(uint32(x2lo))),
+				)) | (math.Float64bits(moremath.WasmCompatMin(
+					float64(math.Float32frombits(uint32(x1lo>>32))),
+					float64(math.Float32frombits(uint32(x2lo>>32))),
+				)) << 32)
+			case wazeroir.ShapeF64x2:
+				retHi = math.Float64bits(moremath.WasmCompatMin(
+					math.Float64frombits(x1hi),
+					math.Float64frombits(x2hi),
+				))
+				retLo = math.Float64bits(moremath.WasmCompatMin(
+					math.Float64frombits(x1lo),
+					math.Float64frombits(x2lo),
+				))
+			}
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
+		case wazeroir.OperationKindV128Max:
+			x2hi, x2lo := ce.popValue(), ce.popValue()
+			x1hi, x1lo := ce.popValue(), ce.popValue()
+			var retLo, retHi uint64
+			switch op.b1 {
+			case wazeroir.ShapeI8x16:
+				if op.b3 { // signed
+					retLo = uint64(i8MaxS(uint8(x1lo>>8), uint8(x2lo>>8)))<<8 | uint64(i8MaxS(uint8(x1lo), uint8(x2lo))) |
+						uint64(i8MaxS(uint8(x1lo>>24), uint8(x2lo>>24)))<<24 | uint64(i8MaxS(uint8(x1lo>>16), uint8(x2lo>>16)))<<16 |
+						uint64(i8MaxS(uint8(x1lo>>40), uint8(x2lo>>40)))<<40 | uint64(i8MaxS(uint8(x1lo>>32), uint8(x2lo>>32)))<<32 |
+						uint64(i8MaxS(uint8(x1lo>>56), uint8(x2lo>>56)))<<56 | uint64(i8MaxS(uint8(x1lo>>48), uint8(x2lo>>48)))<<48
+					retHi = uint64(i8MaxS(uint8(x1hi>>8), uint8(x2hi>>8)))<<8 | uint64(i8MaxS(uint8(x1hi), uint8(x2hi))) |
+						uint64(i8MaxS(uint8(x1hi>>24), uint8(x2hi>>24)))<<24 | uint64(i8MaxS(uint8(x1hi>>16), uint8(x2hi>>16)))<<16 |
+						uint64(i8MaxS(uint8(x1hi>>40), uint8(x2hi>>40)))<<40 | uint64(i8MaxS(uint8(x1hi>>32), uint8(x2hi>>32)))<<32 |
+						uint64(i8MaxS(uint8(x1hi>>56), uint8(x2hi>>56)))<<56 | uint64(i8MaxS(uint8(x1hi>>48), uint8(x2hi>>48)))<<48
+				} else {
+					retLo = uint64(i8MaxU(uint8(x1lo>>8), uint8(x2lo>>8)))<<8 | uint64(i8MaxU(uint8(x1lo), uint8(x2lo))) |
+						uint64(i8MaxU(uint8(x1lo>>24), uint8(x2lo>>24)))<<24 | uint64(i8MaxU(uint8(x1lo>>16), uint8(x2lo>>16)))<<16 |
+						uint64(i8MaxU(uint8(x1lo>>40), uint8(x2lo>>40)))<<40 | uint64(i8MaxU(uint8(x1lo>>32), uint8(x2lo>>32)))<<32 |
+						uint64(i8MaxU(uint8(x1lo>>56), uint8(x2lo>>56)))<<56 | uint64(i8MaxU(uint8(x1lo>>48), uint8(x2lo>>48)))<<48
+					retHi = uint64(i8MaxU(uint8(x1hi>>8), uint8(x2hi>>8)))<<8 | uint64(i8MaxU(uint8(x1hi), uint8(x2hi))) |
+						uint64(i8MaxU(uint8(x1hi>>24), uint8(x2hi>>24)))<<24 | uint64(i8MaxU(uint8(x1hi>>16), uint8(x2hi>>16)))<<16 |
+						uint64(i8MaxU(uint8(x1hi>>40), uint8(x2hi>>40)))<<40 | uint64(i8MaxU(uint8(x1hi>>32), uint8(x2hi>>32)))<<32 |
+						uint64(i8MaxU(uint8(x1hi>>56), uint8(x2hi>>56)))<<56 | uint64(i8MaxU(uint8(x1hi>>48), uint8(x2hi>>48)))<<48
+				}
+			case wazeroir.ShapeI16x8:
+				if op.b3 { // signed
+					retLo = uint64(i16MaxS(uint16(x1lo), uint16(x2lo))) |
+						uint64(i16MaxS(uint16(x1lo>>16), uint16(x2lo>>16)))<<16 |
+						uint64(i16MaxS(uint16(x1lo>>32), uint16(x2lo>>32)))<<32 |
+						uint64(i16MaxS(uint16(x1lo>>48), uint16(x2lo>>48)))<<48
+					retHi = uint64(i16MaxS(uint16(x1hi), uint16(x2hi))) |
+						uint64(i16MaxS(uint16(x1hi>>16), uint16(x2hi>>16)))<<16 |
+						uint64(i16MaxS(uint16(x1hi>>32), uint16(x2hi>>32)))<<32 |
+						uint64(i16MaxS(uint16(x1hi>>48), uint16(x2hi>>48)))<<48
+				} else {
+					retLo = uint64(i16MaxU(uint16(x1lo), uint16(x2lo))) |
+						uint64(i16MaxU(uint16(x1lo>>16), uint16(x2lo>>16)))<<16 |
+						uint64(i16MaxU(uint16(x1lo>>32), uint16(x2lo>>32)))<<32 |
+						uint64(i16MaxU(uint16(x1lo>>48), uint16(x2lo>>48)))<<48
+					retHi = uint64(i16MaxU(uint16(x1hi), uint16(x2hi))) |
+						uint64(i16MaxU(uint16(x1hi>>16), uint16(x2hi>>16)))<<16 |
+						uint64(i16MaxU(uint16(x1hi>>32), uint16(x2hi>>32)))<<32 |
+						uint64(i16MaxU(uint16(x1hi>>48), uint16(x2hi>>48)))<<48
+				}
+			case wazeroir.ShapeI32x4:
+				if op.b3 { // signed
+					retLo = uint64(i32MaxU(uint32(x1lo), uint32(x2lo))) |
+						uint64(i32MaxU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
+					retHi = uint64(i32MaxU(uint32(x1hi), uint32(x2hi))) |
+						uint64(i32MaxU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
+				} else {
+					retLo = uint64(i32MaxU(uint32(x1lo), uint32(x2lo))) |
+						uint64(i32MaxU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
+					retHi = uint64(i32MaxU(uint32(x1hi), uint32(x2hi))) |
+						uint64(i32MaxU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
+				}
+			case wazeroir.ShapeF32x4:
+				retHi = math.Float64bits(moremath.WasmCompatMax(
+					float64(math.Float32frombits(uint32(x1hi))),
+					float64(math.Float32frombits(uint32(x2hi))),
+				)) | (math.Float64bits(moremath.WasmCompatMax(
+					float64(math.Float32frombits(uint32(x1hi>>32))),
+					float64(math.Float32frombits(uint32(x2hi>>32))),
+				)) << 32)
+				retLo = math.Float64bits(moremath.WasmCompatMax(
+					float64(math.Float32frombits(uint32(x1lo))),
+					float64(math.Float32frombits(uint32(x2lo))),
+				)) | (math.Float64bits(moremath.WasmCompatMax(
+					float64(math.Float32frombits(uint32(x1lo>>32))),
+					float64(math.Float32frombits(uint32(x2lo>>32))),
+				)) << 32)
+			case wazeroir.ShapeF64x2:
+				retHi = math.Float64bits(moremath.WasmCompatMax(
+					math.Float64frombits(x1hi),
+					math.Float64frombits(x2hi),
+				))
+				retLo = math.Float64bits(moremath.WasmCompatMax(
+					math.Float64frombits(x1lo),
+					math.Float64frombits(x2lo),
+				))
+			}
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
+		case wazeroir.OperationKindV128AvgrU:
+			x2hi, x2lo := ce.popValue(), ce.popValue()
+			x1hi, x1lo := ce.popValue(), ce.popValue()
+			var retLo, retHi uint64
+			switch op.b1 {
+			case wazeroir.ShapeI8x16:
+				retLo = uint64(i8RoundingAverage(uint8(x1lo>>8), uint8(x2lo>>8)))<<8 | uint64(i8RoundingAverage(uint8(x1lo), uint8(x2lo))) |
+					uint64(i8RoundingAverage(uint8(x1lo>>24), uint8(x2lo>>24)))<<24 | uint64(i8RoundingAverage(uint8(x1lo>>16), uint8(x2lo>>16)))<<16 |
+					uint64(i8RoundingAverage(uint8(x1lo>>40), uint8(x2lo>>40)))<<40 | uint64(i8RoundingAverage(uint8(x1lo>>32), uint8(x2lo>>32)))<<32 |
+					uint64(i8RoundingAverage(uint8(x1lo>>56), uint8(x2lo>>56)))<<56 | uint64(i8RoundingAverage(uint8(x1lo>>48), uint8(x2lo>>48)))<<48
+				retHi = uint64(i8RoundingAverage(uint8(x1hi>>8), uint8(x2hi>>8)))<<8 | uint64(i8RoundingAverage(uint8(x1hi), uint8(x2hi))) |
+					uint64(i8RoundingAverage(uint8(x1hi>>24), uint8(x2hi>>24)))<<24 | uint64(i8RoundingAverage(uint8(x1hi>>16), uint8(x2hi>>16)))<<16 |
+					uint64(i8RoundingAverage(uint8(x1hi>>40), uint8(x2hi>>40)))<<40 | uint64(i8RoundingAverage(uint8(x1hi>>32), uint8(x2hi>>32)))<<32 |
+					uint64(i8RoundingAverage(uint8(x1hi>>56), uint8(x2hi>>56)))<<56 | uint64(i8RoundingAverage(uint8(x1hi>>48), uint8(x2hi>>48)))<<48
+			case wazeroir.ShapeI16x8:
+				retLo = uint64(i16RoundingAverage(uint16(x1lo), uint16(x2lo))) |
+					uint64(i16RoundingAverage(uint16(x1lo>>16), uint16(x2lo>>16)))<<16 |
+					uint64(i16RoundingAverage(uint16(x1lo>>32), uint16(x2lo>>32)))<<32 |
+					uint64(i16RoundingAverage(uint16(x1lo>>48), uint16(x2lo>>48)))<<48
+				retHi = uint64(i16RoundingAverage(uint16(x1hi), uint16(x2hi))) |
+					uint64(i16RoundingAverage(uint16(x1hi>>16), uint16(x2hi>>16)))<<16 |
+					uint64(i16RoundingAverage(uint16(x1hi>>32), uint16(x2hi>>32)))<<32 |
+					uint64(i16RoundingAverage(uint16(x1hi>>48), uint16(x2hi>>48)))<<48
+			}
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
 		}
 	}
 	ce.popFrame()
+}
+
+func i8RoundingAverage(v1, v2 byte) byte {
+	// https://github.com/WebAssembly/spec/blob/main/proposals/simd/SIMD.md#lane-wise-integer-rounding-average
+	return (v1 + v2 + 1) / 2
+}
+
+func i16RoundingAverage(v1, v2 uint16) uint16 {
+	// https://github.com/WebAssembly/spec/blob/main/proposals/simd/SIMD.md#lane-wise-integer-rounding-average
+	return (v1 + v2 + 1) / 2
+}
+
+func i8Abs(v byte) byte {
+	if i := int8(v); i < 0 {
+		return byte(-i)
+	} else {
+		return byte(i)
+	}
+}
+
+func i8MaxU(v1, v2 byte) byte {
+	if v1 < v2 {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i8MinU(v1, v2 byte) byte {
+	if v1 > v2 {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i8MaxS(v1, v2 byte) byte {
+	if int8(v1) < int8(v2) {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i8MinS(v1, v2 byte) byte {
+	if int8(v1) > int8(v2) {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i16MaxU(v1, v2 uint16) uint16 {
+	if v1 < v2 {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i16MinU(v1, v2 uint16) uint16 {
+	if v1 > v2 {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i16MaxS(v1, v2 uint16) uint16 {
+	if int16(v1) < int16(v2) {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i16MinS(v1, v2 uint16) uint16 {
+	if int16(v1) > int16(v2) {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i32MaxU(v1, v2 uint32) uint32 {
+	if v1 < v2 {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i32MinU(v1, v2 uint32) uint32 {
+	if v1 > v2 {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i32MaxS(v1, v2 uint32) uint32 {
+	if int32(v1) < int32(v2) {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i32MinS(v1, v2 uint32) uint32 {
+	if int32(v1) > int32(v2) {
+		return v2
+	} else {
+		return v1
+	}
+}
+
+func i16Abs(v uint16) uint16 {
+	if i := int16(v); i < 0 {
+		return uint16(-i)
+	} else {
+		return uint16(i)
+	}
+}
+
+func i32Abs(v uint32) uint32 {
+	if i := int32(v); i < 0 {
+		return uint32(-i)
+	} else {
+		return uint32(i)
+	}
 }
 
 func (ce *callEngine) callNativeFuncWithListener(ctx context.Context, callCtx *wasm.CallContext, f *function, fnl experimental.FunctionListener) context.Context {
