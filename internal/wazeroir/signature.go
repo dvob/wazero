@@ -530,7 +530,10 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 			wasm.OpcodeVecI8x16BitMask, wasm.OpcodeVecI16x8BitMask, wasm.OpcodeVecI32x4BitMask, wasm.OpcodeVecI64x2BitMask:
 			return signature_V128_I32, nil
 		case wasm.OpcodeVecV128Not, wasm.OpcodeVecI8x16Neg, wasm.OpcodeVecI16x8Neg, wasm.OpcodeVecI32x4Neg, wasm.OpcodeVecI64x2Neg,
-			wasm.OpcodeVecF32x4Neg, wasm.OpcodeVecF64x2Neg, wasm.OpcodeVecF32x4Sqrt, wasm.OpcodeVecF64x2Sqrt:
+			wasm.OpcodeVecF32x4Neg, wasm.OpcodeVecF64x2Neg, wasm.OpcodeVecF32x4Sqrt, wasm.OpcodeVecF64x2Sqrt,
+			wasm.OpcodeVecI8x16Abs, wasm.OpcodeVecI8x16Popcnt, wasm.OpcodeVecI16x8Abs, wasm.OpcodeVecI32x4Abs, wasm.OpcodeVecI64x2Abs,
+			wasm.OpcodeVecF32x4Abs,
+			wasm.OpcodeVecF64x2Abs:
 			return signature_V128_V128, nil
 		case wasm.OpcodeVecV128Bitselect:
 			return signature_V128V128V128_V32, nil
@@ -551,7 +554,14 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 			wasm.OpcodeVecI32x4Add, wasm.OpcodeVecI32x4Sub, wasm.OpcodeVecI32x4Mul,
 			wasm.OpcodeVecI64x2Add, wasm.OpcodeVecI64x2Sub, wasm.OpcodeVecI64x2Mul,
 			wasm.OpcodeVecF32x4Add, wasm.OpcodeVecF32x4Sub, wasm.OpcodeVecF32x4Mul, wasm.OpcodeVecF32x4Div,
-			wasm.OpcodeVecF64x2Add, wasm.OpcodeVecF64x2Sub, wasm.OpcodeVecF64x2Mul, wasm.OpcodeVecF64x2Div:
+			wasm.OpcodeVecF64x2Add, wasm.OpcodeVecF64x2Sub, wasm.OpcodeVecF64x2Mul, wasm.OpcodeVecF64x2Div,
+			wasm.OpcodeVecI8x16MinS, wasm.OpcodeVecI8x16MinU, wasm.OpcodeVecI8x16MaxS, wasm.OpcodeVecI8x16MaxU, wasm.OpcodeVecI8x16ArgrU,
+			wasm.OpcodeVecI16x8MinS, wasm.OpcodeVecI16x8MinU, wasm.OpcodeVecI16x8MaxS, wasm.OpcodeVecI16x8MaxU, wasm.OpcodeVecI16x8ArgrU,
+			wasm.OpcodeVecI32x4MinS, wasm.OpcodeVecI32x4MinU, wasm.OpcodeVecI32x4MaxS, wasm.OpcodeVecI32x4MaxU,
+			wasm.OpcodeVecF32x4Min,
+			wasm.OpcodeVecF32x4Max,
+			wasm.OpcodeVecF64x2Min,
+			wasm.OpcodeVecF64x2Max:
 			return signature_V128V128_V128, nil
 		default:
 			return nil, fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))

@@ -1310,7 +1310,9 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 				valueTypeStack.push(ValueTypeV128)
 			case OpcodeVecI8x16Neg, OpcodeVecI16x8Neg, OpcodeVecI32x4Neg, OpcodeVecI64x2Neg, OpcodeVecF32x4Neg, OpcodeVecF64x2Neg,
-				OpcodeVecF32x4Sqrt, OpcodeVecF64x2Sqrt:
+				OpcodeVecF32x4Sqrt, OpcodeVecF64x2Sqrt,
+				OpcodeVecI8x16Abs, OpcodeVecI8x16Popcnt, OpcodeVecI16x8Abs, OpcodeVecI32x4Abs, OpcodeVecI64x2Abs,
+				OpcodeVecF32x4Abs, OpcodeVecF64x2Abs:
 				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
 					return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
 				}
@@ -1321,11 +1323,18 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				OpcodeVecI32x4Add, OpcodeVecI32x4Sub, OpcodeVecI32x4Mul,
 				OpcodeVecI64x2Add, OpcodeVecI64x2Sub, OpcodeVecI64x2Mul,
 				OpcodeVecF32x4Add, OpcodeVecF32x4Sub, OpcodeVecF32x4Mul, OpcodeVecF32x4Div,
-				OpcodeVecF64x2Add, OpcodeVecF64x2Sub, OpcodeVecF64x2Mul, OpcodeVecF64x2Div:
-				for i := 0; i < 2; i++ {
-					if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
-						return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
-					}
+				OpcodeVecF64x2Add, OpcodeVecF64x2Sub, OpcodeVecF64x2Mul, OpcodeVecF64x2Div,
+				OpcodeVecI8x16MinS, OpcodeVecI8x16MinU, OpcodeVecI8x16MaxS, OpcodeVecI8x16MaxU,
+				OpcodeVecI8x16ArgrU,
+				OpcodeVecI16x8MinS, OpcodeVecI16x8MinU, OpcodeVecI16x8MaxS, OpcodeVecI16x8MaxU,
+				OpcodeVecI16x8ArgrU,
+				OpcodeVecI32x4MinS, OpcodeVecI32x4MinU, OpcodeVecI32x4MaxS, OpcodeVecI32x4MaxU,
+				OpcodeVecF32x4Min, OpcodeVecF32x4Max, OpcodeVecF64x2Min, OpcodeVecF64x2Max:
+				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
+					return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
+				}
+				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
+					return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
 				}
 				valueTypeStack.push(ValueTypeV128)
 			default:
