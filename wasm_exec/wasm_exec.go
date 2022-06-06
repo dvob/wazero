@@ -1,7 +1,7 @@
 // Package wasm_exec contains imports and state needed by wasm go compiles when
 // GOOS=js and GOARCH=wasm.
 //
-// See /wasm_exec/README.md for a deeper dive.
+// See /wasm_exec/REFERENCE.md for a deeper dive.
 package wasm_exec
 
 import (
@@ -57,16 +57,16 @@ type builder struct {
 
 // moduleBuilder returns a new wazero.ModuleBuilder
 func (b *builder) moduleBuilder() wazero.ModuleBuilder {
-	g := &wasmExec{}
+	g := &jsWasm{}
 	return b.r.NewModuleBuilder("go").
-		ExportFunction("runtime.wasmExit", g.wasmExit).
-		ExportFunction("runtime.wasmWrite", g.wasmWrite).
-		ExportFunction("runtime.resetMemoryDataView", g.resetMemoryDataView).
-		ExportFunction("runtime.nanotime1", g.nanotime1).
-		ExportFunction("runtime.walltime", g.walltime).
-		ExportFunction("runtime.scheduleTimeoutEvent", g.scheduleTimeoutEvent).
-		ExportFunction("runtime.clearTimeoutEvent", g.clearTimeoutEvent).
-		ExportFunction("runtime.getRandomData", g.getRandomData)
+		ExportFunction("runtime.wasmExit", g._wasmExit).
+		ExportFunction("runtime.wasmWrite", g._wasmWrite).
+		ExportFunction("runtime.resetMemoryDataView", g._resetMemoryDataView).
+		ExportFunction("runtime.nanotime1", g._nanotime1).
+		ExportFunction("runtime.walltime", g._walltime).
+		ExportFunction("runtime.scheduleTimeoutEvent", g._scheduleTimeoutEvent).
+		ExportFunction("runtime.clearTimeoutEvent", g._clearTimeoutEvent).
+		ExportFunction("runtime.getRandomData", g._getRandomData)
 }
 
 // Compile implements Builder.Compile
@@ -79,11 +79,11 @@ func (b *builder) Instantiate(ctx context.Context, ns wazero.Namespace) (api.Clo
 	return b.moduleBuilder().Instantiate(ctx, ns)
 }
 
-// wasmExec holds defines the "go" imports used by wasm_exec.
+// jsWasm holds defines the "go" imports used by wasm_exec.
 //
 // Note: This is module-scoped, so only safe when used in a wazero.Namespace
 // that only instantiates one module.
-type wasmExec struct {
+type jsWasm struct {
 	mux                   sync.RWMutex
 	nextCallbackTimeoutID uint32                 // guarded by mux
 	scheduledTimeouts     map[uint32]*time.Timer // guarded by mux
@@ -91,34 +91,40 @@ type wasmExec struct {
 	closed *uint64
 }
 
-// wasmExit implements runtime.wasmWrite which supports runtime.exit.
-//
-// Here is this Wasm function name and its signature in runtime/sys_wasm.go:
-//	* "runtime.wasmExit" - `func wasmWrite(fd uintptr, p unsafe.Pointer, n int32)`
-// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.go#L28
-func (a *wasmExec) wasmExit(ctx context.Context, mod api.Module, sp uint32) {
-	exitCode := requireReadUint32Le(ctx, mod.Memory(), "code", sp+8)
+// _wasmExit converts the GOARCH=wasm stack to be compatible with api.ValueType
+// in order to call wasmExit.
+func (j *jsWasm) _wasmExit(ctx context.Context, mod api.Module, sp uint32) {
+	code := requireReadUint32Le(ctx, mod.Memory(), "code", sp+8)
+	j.wasmExit(ctx, mod, code)
+}
 
-	closed := uint64(1) + uint64(exitCode)<<32 // Store exitCode as high-order bits.
-	if !atomic.CompareAndSwapUint64(a.closed, 0, closed) {
+// wasmExit implements runtime.wasmExit which supports runtime.exit.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.go#L28
+func (j *jsWasm) wasmExit(ctx context.Context, mod api.Module, code uint32) {
+	closed := uint64(1) + uint64(code)<<32 // Store exitCode as high-order bits.
+	if !atomic.CompareAndSwapUint64(j.closed, 0, closed) {
 		return
 	}
 
 	// TODO: free resources for this module
-	_ = mod.CloseWithExitCode(ctx, exitCode)
+	_ = mod.CloseWithExitCode(ctx, code)
+}
+
+// _wasmWrite converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call wasmWrite.
+func (j *jsWasm) _wasmWrite(ctx context.Context, mod api.Module, sp uint32) {
+	fd := requireReadUint64Le(ctx, mod.Memory(), "fd", sp+8)
+	p := requireReadUint64Le(ctx, mod.Memory(), "p", sp+16)
+	n := requireReadUint32Le(ctx, mod.Memory(), "n", sp+24)
+	j.wasmWrite(ctx, mod, fd, p, n)
 }
 
 // wasmWrite implements runtime.wasmWrite which supports runtime.write and
 // runtime.writeErr. It is only known to be used with fd = 2 (stderr).
 //
-// Here is this Wasm function name and its signature in runtime/os_js.go:
-//	* "runtime.wasmWrite" - `func wasmWrite(fd uintptr, p unsafe.Pointer, n int32)`
 // See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/os_js.go#L29
-func (a *wasmExec) wasmWrite(ctx context.Context, mod api.Module, sp uint32) {
-	fd := uint32(requireReadUint64Le(ctx, mod.Memory(), "fd", sp+8))
-	p := requireReadUint64Le(ctx, mod.Memory(), "p", sp+16)
-	n := requireReadUint32Le(ctx, mod.Memory(), "n", sp+24)
-
+func (j *jsWasm) wasmWrite(ctx context.Context, mod api.Module, fd, p uint64, n uint32) {
 	var writer io.Writer
 
 	switch fd {
@@ -136,35 +142,55 @@ func (a *wasmExec) wasmWrite(ctx context.Context, mod api.Module, sp uint32) {
 	}
 }
 
+// _resetMemoryDataView converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call resetMemoryDataView.
+func (j *jsWasm) _resetMemoryDataView(ctx context.Context, mod api.Module, sp uint32) {
+	j.resetMemoryDataView(ctx, mod)
+}
+
 // resetMemoryDataView signals wasm.OpcodeMemoryGrow happened, indicating any
 // cached view of memory should be reset.
 //
-// Here is this Wasm function name and its signature in runtime/mem_js.go:
-//	* "runtime.resetMemoryDataView" - `func resetMemoryDataView()`
 // See https://github.com/golang/go/blob/9839668b5619f45e293dd40339bf0ac614ea6bee/src/runtime/mem_js.go#L82
-func (a *wasmExec) resetMemoryDataView(sp uint32) {
+func (j *jsWasm) resetMemoryDataView(ctx context.Context, mod api.Module) {
 	// TODO: Compiler-based memory.grow callbacks are ignored until we have a generic solution #601
+}
+
+// _nanotime1 converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call nanotime1.
+func (j *jsWasm) _nanotime1(ctx context.Context, mod api.Module, sp uint32) {
+	nanos := j.nanotime1(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "t", sp+8, nanos)
 }
 
 // nanotime1 implements runtime.nanotime which supports time.Since.
 //
-// Here is this Wasm function name and its signature in runtime/sys_wasm.s:
-//	* "runtime.nanotime1" - `func nanotime1() int64`
 // See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.s#L184
-func (a *wasmExec) nanotime1(ctx context.Context, mod api.Module, sp uint32) {
-	nanos := getSysCtx(mod).Nanotime(ctx)
-	requireWriteUint64Le(ctx, mod.Memory(), "t", sp+8, uint64(nanos))
+func (j *jsWasm) nanotime1(ctx context.Context, mod api.Module) uint64 {
+	return uint64(getSysCtx(mod).Nanotime(ctx))
+}
+
+// _walltime converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call walltime.
+func (j *jsWasm) _walltime(ctx context.Context, mod api.Module, sp uint32) {
+	sec, nsec := j.walltime(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "sec", sp+8, uint64(sec))
+	requireWriteUint32Le(ctx, mod.Memory(), "nsec", sp+16, uint32(nsec))
 }
 
 // walltime implements runtime.walltime which supports time.Now.
 //
-// Here is this Wasm function name and its signature in runtime/sys_wasm.s:
-//	* "runtime.walltime" - `func walltime() (sec int64, nsec int32)`
 // See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.s#L188
-func (a *wasmExec) walltime(ctx context.Context, mod api.Module, sp uint32) {
-	sec, nsec := getSysCtx(mod).Walltime(ctx)
-	requireWriteUint64Le(ctx, mod.Memory(), "sec", sp+8, uint64(sec))
-	requireWriteUint32Le(ctx, mod.Memory(), "nsec", sp+16, uint32(nsec))
+func (j *jsWasm) walltime(ctx context.Context, mod api.Module) (uint64 int64, uint32 int32) {
+	return getSysCtx(mod).Walltime(ctx)
+}
+
+// _scheduleTimeoutEvent converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call scheduleTimeoutEvent.
+func (j *jsWasm) _scheduleTimeoutEvent(ctx context.Context, mod api.Module, sp uint32) {
+	delayMs := requireReadUint64Le(ctx, mod.Memory(), "delay", sp+8)
+	id := j.scheduleTimeoutEvent(ctx, mod, delayMs)
+	requireWriteUint32Le(ctx, mod.Memory(), "id", sp+16, id)
 }
 
 // scheduleTimeoutEvent implements runtime.scheduleTimeoutEvent which supports
@@ -173,18 +199,15 @@ func (a *wasmExec) walltime(ctx context.Context, mod api.Module, sp uint32) {
 // Unlike other most functions prefixed by "runtime.", this both launches a
 // goroutine and invokes code compiled into wasm "resume".
 //
-// Here is this Wasm function name and its signature in runtime/sys_wasm.s:
-//	* "runtime.scheduleTimeoutEvent" - `func scheduleTimeoutEvent(delay int64) int32`
 // See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.s#L192
-func (a *wasmExec) scheduleTimeoutEvent(ctx context.Context, mod api.Module, sp uint32) {
-	delayMs := requireReadUint64Le(ctx, mod.Memory(), "delay", sp+8)
+func (j *jsWasm) scheduleTimeoutEvent(ctx context.Context, mod api.Module, delayMs uint64) uint32 {
 	delay := time.Duration(delayMs) * time.Millisecond
 
 	resume := mod.ExportedFunction("resume")
 
 	// Invoke resume as an anonymous function, to propagate the context.
 	callResume := func() {
-		if err := a.failIfClosed(mod); err != nil {
+		if err := j.failIfClosed(mod); err != nil {
 			return
 		}
 		// While there's a possible error here, panicking won't help as it is
@@ -192,36 +215,42 @@ func (a *wasmExec) scheduleTimeoutEvent(ctx context.Context, mod api.Module, sp 
 		_, _ = resume.Call(ctx)
 	}
 
-	id := a.scheduleEvent(delay, callResume)
-	requireWriteUint32Le(ctx, mod.Memory(), "id", sp+16, id)
+	return j.scheduleEvent(delay, callResume)
+}
+
+// _clearTimeoutEvent converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call clearTimeoutEvent.
+func (j *jsWasm) _clearTimeoutEvent(ctx context.Context, mod api.Module, sp uint32) {
+	id := requireReadUint32Le(ctx, mod.Memory(), "id", sp+8)
+	j.clearTimeoutEvent(id)
 }
 
 // clearTimeoutEvent implements runtime.clearTimeoutEvent which supports
 // runtime.notetsleepg used by runtime.signal_recv.
 //
-// Here is this Wasm function name and its signature in runtime/sys_wasm.s:
-//	* "runtime.clearTimeoutEvent" - `func clearTimeoutEvent(id int32)`
 // See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.s#L196
-func (a *wasmExec) clearTimeoutEvent(ctx context.Context, mod api.Module, sp uint32) {
-	id := requireReadUint32Le(ctx, mod.Memory(), "id", sp+8)
-
-	if t := a.removeEvent(id); t != nil {
+func (j *jsWasm) clearTimeoutEvent(id uint32) {
+	if t := j.removeEvent(id); t != nil {
 		if !t.Stop() {
 			<-t.C
 		}
 	}
 }
 
-// getRandomData implements runtime.getRandomData, which initializes the seed
-// for runtime.fastrand.
-//
-// Here is this Wasm function name and its signature in runtime/sys_wasm.s:
-//	* "runtime.getRandomData" - `func getRandomData(r []byte)`
-// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.s#L200
-func (a *wasmExec) getRandomData(ctx context.Context, mod api.Module, sp uint32) {
+// _getRandomData converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call getRandomData.
+func (j *jsWasm) _getRandomData(ctx context.Context, mod api.Module, sp uint32) {
 	buf := uint32(requireReadUint64Le(ctx, mod.Memory(), "buf", sp+8))
 	bufLen := uint32(requireReadUint64Le(ctx, mod.Memory(), "bufLen", sp+16))
 
+	j.getRandomData(ctx, mod, buf, bufLen)
+}
+
+// getRandomData implements runtime.getRandomData, which initializes the seed
+// for runtime.fastrand.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/runtime/sys_wasm.s#L200
+func (j *jsWasm) getRandomData(ctx context.Context, mod api.Module, buf, bufLen uint32) {
 	randSource := getSysCtx(mod).RandSource()
 
 	r := requireRead(ctx, mod.Memory(), "r", buf, bufLen)
@@ -235,21 +264,21 @@ func (a *wasmExec) getRandomData(ctx context.Context, mod api.Module, sp uint32)
 
 // removeEvent removes an event previously scheduled with scheduleEvent or
 // returns nil, if it was already removed.
-func (a *wasmExec) removeEvent(id uint32) *time.Timer {
-	a.mux.Lock()
-	defer a.mux.Unlock()
+func (j *jsWasm) removeEvent(id uint32) *time.Timer {
+	j.mux.Lock()
+	defer j.mux.Unlock()
 
-	t, ok := a.scheduledTimeouts[id]
+	t, ok := j.scheduledTimeouts[id]
 	if ok {
-		delete(a.scheduledTimeouts, id)
+		delete(j.scheduledTimeouts, id)
 		return t
 	}
 	return nil
 }
 
 // failIfClosed returns a sys.ExitError if wasmExit was called.
-func (a *wasmExec) failIfClosed(mod api.Module) error {
-	if closed := atomic.LoadUint64(a.closed); closed != 0 {
+func (j *jsWasm) failIfClosed(mod api.Module) error {
+	if closed := atomic.LoadUint64(j.closed); closed != 0 {
 		return sys.NewExitError(mod.Name(), uint32(closed>>32)) // Unpack the high order bits as the exit code.
 	}
 	return nil
@@ -266,13 +295,13 @@ func getSysCtx(mod api.Module) *internalsys.Context {
 
 // scheduleEvent schedules an event onto another goroutine after d duration and
 // returns a handle to remove it (removeEvent).
-func (a *wasmExec) scheduleEvent(d time.Duration, f func()) uint32 {
-	a.mux.Lock()
-	defer a.mux.Unlock()
+func (j *jsWasm) scheduleEvent(d time.Duration, f func()) uint32 {
+	j.mux.Lock()
+	defer j.mux.Unlock()
 
-	id := a.nextCallbackTimeoutID
-	a.nextCallbackTimeoutID++
-	a.scheduledTimeouts[id] = time.AfterFunc(d, f)
+	id := j.nextCallbackTimeoutID
+	j.nextCallbackTimeoutID++
+	j.scheduledTimeouts[id] = time.AfterFunc(d, f)
 	return id
 }
 

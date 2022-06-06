@@ -1,9 +1,9 @@
-# wasm_exec
+# wasm_exec reference
 
 This package contains imports and state needed by wasm go compiles when
 `GOOS=js` and `GOARCH=wasm`.
 
-## Overview of Wasm compiled by Go
+## Introduction
 
 When `GOOS=js` and `GOARCH=wasm`, Go's compiler targets WebAssembly 1.0 Binary
 format (%.wasm).
@@ -14,9 +14,9 @@ $ GOOS=js GOARCH=wasm go build -o my.wasm .
 ```
 
 The operating system is "js", but more specifically it is [wasm_exec.js][1].
-This package runs the %.wasm just like wasm_exec.js would.
+This package runs the `%.wasm` just like `wasm_exec.js` would.
 
-### Identifying Go compiled Wasm
+## Identifying wasm compiled by Go
 
 If you have a `%.wasm` file compiled by Go (via [asm.go][2]), it has a custom
 section named "go.buildid".
@@ -33,38 +33,31 @@ Custom:
 - name: "go.buildid"
 ```
 
-### Module exports
+## Module Exports
 
-Until [wasmexport][4] is implemented, the WebAssembly exports Go generates are
+Until [wasmexport][4] is implemented, the [compiled][2] WebAssembly exports are
 always the same:
 
-* "mem" - (memory 0)
+* "mem" - (memory 265) 265 = data section plus 16MB
 * "run" - (func (param $argc i32) (param $argv i32)) the entrypoint
 * "resume" - (func) continues work after a timer delay
 * "getsp" - (func (result i32)) returns the stack pointer
 
-### Function Imports
+## Module Imports
 
-Go's compiler generates WebAssembly imports in the module "go". Except for
-the "debug" function, all function imports have a naming convention that's
-prefixed by the package name. Here are the defaults:
+Go's [compiles][3] all WebAssembly imports in the module "go", and only
+functions are imported.
+
+Except for the "debug" function, all function names are prefixed by their go
+package. Here are the defaults:
 
 * "debug" - unknown
-* "runtime.*" - supports system-call like functionality
-* "syscall/js.*" - supports the JavaScript model
+* "runtime.*" - supports system-call like functionality `GOARCH=wasm`
+* "syscall/js.*" - supports the JavaScript model `GOOS=js`
 
-All "go" imports have the same function type: `(func (param $sp i32))`. "sp" is
-the base memory offset to read and write parameters to the stack (at 8 byte
-strides even if the value is 32-bit).
-
-For example, `func walltime() (sec int64, nsec int32)` writes its results to
-memory at offsets `sp+8` and `sp+16` respectively.
-
-Users can also define their own function imports in the "go" module directly.
-To do so, they define a func without a body in their source. Then, they define
-a `%_wasm.s` file that uses the `CallImport` instruction. The compiler (via
-[asm.go][2]) chooses a naming prefix of "main.$funcName", if defined in the `main`
-package, or a fully-qualified based on the module, if elsewhere.
+Users can define their own "go" module function imports by defining a func
+without a body in their source and a `%_wasm.s` or `%_js.s` file that uses the
+`CallImport` instruction.
 
 For example, given `func logString(msg string)` and the below assembly:
 ```assembly
@@ -81,7 +74,21 @@ If the package was `main`, the WebAssembly function name would be
 "github.com/prep/user/me/util.logString"
 
 Regardless of whether the function import was built-in to Go, or defined by an
-end user, the function type is the same as described above.
+end user, the function type is the same as described below.
+
+## CallImport conventions
+
+The assembly `CallImport` instruction doesn't compile signatures to WebAssembly
+function types. Instead, all functions have a single parameter of the stack
+pointer, and implementors need to read the actual parameters from memory.
+Similarly, if there are results, the implementation must write those to memory.
+
+Specifically, any function compiled with `CallImport` has the same function
+type: `(func (param $sp i32))`. `$sp` is the base memory offset to read and
+write parameters to the stack (at 8 byte strides even if the value is 32-bit).
+
+For example, `func walltime() (sec int64, nsec int32)` writes its results to
+memory at offsets `sp+8` and `sp+16` respectively.
 
 [1]: https://github.com/golang/go/blob/master/misc/wasm/wasm_exec.js
 [2]: https://github.com/golang/go/blob/master/src/cmd/link/internal/wasm/asm.go
