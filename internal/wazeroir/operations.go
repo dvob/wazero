@@ -348,6 +348,18 @@ func (o OperationKind) String() (ret string) {
 		ret = "SignExtend64From16"
 	case OperationKindSignExtend64From32:
 		ret = "SignExtend64From32"
+	case OperationKindV128AddSat:
+		ret = "V128AddSat"
+	case OperationKindV128SubSat:
+		ret = "V128SubSat"
+	case OperationKindV128Mul:
+		ret = "V128Mul"
+	case OperationKindV128Div:
+		ret = "V128Div"
+	case OperationKindV128Neg:
+		ret = "V128Neg"
+	case OperationKindV128Sqrt:
+		ret = "V128Sqrt"
 	default:
 		panic(fmt.Errorf("unknown operation %d", o))
 	}

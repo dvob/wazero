@@ -2957,8 +2957,74 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			ce.pushValue(retHi)
 			frame.pc++
 		case wazeroir.OperationKindV128AddSat:
-			frame.pc++
+			x2hi, _ := ce.popValue(), ce.popValue()
+			x1hi, _ := ce.popValue(), ce.popValue()
 
+			var retLo, retHi uint64
+			switch op.b1 {
+			case wazeroir.ShapeI8x16:
+				for i := 0; i < 16; i++ {
+					var v int64
+					if i < 8 {
+						v = int64(byte(x1hi>>i*8)) + int64(byte(x2hi>>i*8))
+					} else {
+						v = int64(byte(x1hi>>((i-8)*8))) + int64(byte(x2hi>>((i-8)*8)))
+					}
+
+					if op.b3 { // signed
+						if v < math.MinInt8 {
+							v = math.MinInt8
+						} else if v > math.MaxInt8 {
+							v = math.MaxInt8
+						}
+					} else {
+						if v < 0 {
+							v = 0
+						} else if v > math.MaxInt8 {
+							v = math.MaxUint8
+						}
+					}
+
+					if i < 8 {
+						retLo |= uint64(byte(v)) << (i * 8)
+					} else {
+						retHi |= uint64(byte(v)) << ((i - 8) * 8)
+					}
+				}
+			case wazeroir.ShapeI16x8:
+				for i := 0; i < 16; i++ {
+					var v int64
+					if i < 4 {
+						v = int64(uint16(x1hi>>i*16)) + int64(uint16(x2hi>>i*16))
+					} else {
+						v = int64(uint16(x1hi>>((i-4)*8))) + int64(uint16(x2hi>>((i-4)*16)))
+					}
+
+					if op.b3 { // signed
+						if v < math.MinInt16 {
+							v = math.MinInt16
+						} else if v > math.MaxInt16 {
+							v = math.MaxInt16
+						}
+					} else {
+						if v < 0 {
+							v = 0
+						} else if v > math.MaxInt16 {
+							v = math.MaxUint16
+						}
+					}
+
+					if i < 4 {
+						retLo |= uint64(uint16(v)) << (i * 16)
+					} else {
+						retHi |= uint64(uint16(v)) << ((i - 4) * 16)
+					}
+				}
+			}
+
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
 		case wazeroir.OperationKindV128SubSat:
 			frame.pc++
 
