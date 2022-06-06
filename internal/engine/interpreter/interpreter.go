@@ -3248,10 +3248,10 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				hi = uint64(i32Abs(uint32(hi))) | (uint64(i32Abs(uint32(hi>>32))) << 32)
 				lo = uint64(i32Abs(uint32(lo))) | (uint64(i32Abs(uint32(lo>>32))) << 32)
 			case wazeroir.ShapeI64x2:
-				if hi < 0 {
+				if int64(hi) < 0 {
 					hi = -hi
 				}
-				if lo < 0 {
+				if int64(lo) < 0 {
 					lo = -lo
 				}
 			case wazeroir.ShapeF32x4:
@@ -3340,10 +3340,10 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				}
 			case wazeroir.ShapeI32x4:
 				if op.b3 { // signed
-					retLo = uint64(i32MinU(uint32(x1lo), uint32(x2lo))) |
-						uint64(i32MinU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
-					retHi = uint64(i32MinU(uint32(x1hi), uint32(x2hi))) |
-						uint64(i32MinU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
+					retLo = uint64(i32MinS(uint32(x1lo), uint32(x2lo))) |
+						uint64(i32MinS(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
+					retHi = uint64(i32MinS(uint32(x1hi), uint32(x2hi))) |
+						uint64(i32MinS(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
 				} else {
 					retLo = uint64(i32MinU(uint32(x1lo), uint32(x2lo))) |
 						uint64(i32MinU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
@@ -3351,20 +3351,20 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 						uint64(i32MinU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
 				}
 			case wazeroir.ShapeF32x4:
-				retHi = math.Float64bits(moremath.WasmCompatMin(
+				retHi = uint64(math.Float32bits(float32(moremath.WasmCompatMin(
 					float64(math.Float32frombits(uint32(x1hi))),
 					float64(math.Float32frombits(uint32(x2hi))),
-				)) | (math.Float64bits(moremath.WasmCompatMin(
+				)))) | uint64(math.Float32bits(float32(moremath.WasmCompatMin(
 					float64(math.Float32frombits(uint32(x1hi>>32))),
 					float64(math.Float32frombits(uint32(x2hi>>32))),
-				)) << 32)
-				retLo = math.Float64bits(moremath.WasmCompatMin(
+				))))<<32
+				retLo = uint64(math.Float32bits(float32(moremath.WasmCompatMin(
 					float64(math.Float32frombits(uint32(x1lo))),
 					float64(math.Float32frombits(uint32(x2lo))),
-				)) | (math.Float64bits(moremath.WasmCompatMin(
+				)))) | uint64(math.Float32bits(float32(moremath.WasmCompatMin(
 					float64(math.Float32frombits(uint32(x1lo>>32))),
 					float64(math.Float32frombits(uint32(x2lo>>32))),
-				)) << 32)
+				))))<<32
 			case wazeroir.ShapeF64x2:
 				retHi = math.Float64bits(moremath.WasmCompatMin(
 					math.Float64frombits(x1hi),
@@ -3425,10 +3425,10 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				}
 			case wazeroir.ShapeI32x4:
 				if op.b3 { // signed
-					retLo = uint64(i32MaxU(uint32(x1lo), uint32(x2lo))) |
-						uint64(i32MaxU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
-					retHi = uint64(i32MaxU(uint32(x1hi), uint32(x2hi))) |
-						uint64(i32MaxU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
+					retLo = uint64(i32MaxS(uint32(x1lo), uint32(x2lo))) |
+						uint64(i32MaxS(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
+					retHi = uint64(i32MaxS(uint32(x1hi), uint32(x2hi))) |
+						uint64(i32MaxS(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
 				} else {
 					retLo = uint64(i32MaxU(uint32(x1lo), uint32(x2lo))) |
 						uint64(i32MaxU(uint32(x1lo>>32), uint32(x2lo>>32)))<<32
@@ -3436,20 +3436,20 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 						uint64(i32MaxU(uint32(x1hi>>32), uint32(x2hi>>32)))<<32
 				}
 			case wazeroir.ShapeF32x4:
-				retHi = math.Float64bits(moremath.WasmCompatMax(
+				retHi = uint64(math.Float32bits(float32(moremath.WasmCompatMax(
 					float64(math.Float32frombits(uint32(x1hi))),
 					float64(math.Float32frombits(uint32(x2hi))),
-				)) | (math.Float64bits(moremath.WasmCompatMax(
+				)))) | uint64(math.Float32bits(float32(moremath.WasmCompatMax(
 					float64(math.Float32frombits(uint32(x1hi>>32))),
 					float64(math.Float32frombits(uint32(x2hi>>32))),
-				)) << 32)
-				retLo = math.Float64bits(moremath.WasmCompatMax(
+				))))<<32
+				retLo = uint64(math.Float32bits(float32(moremath.WasmCompatMax(
 					float64(math.Float32frombits(uint32(x1lo))),
 					float64(math.Float32frombits(uint32(x2lo))),
-				)) | (math.Float64bits(moremath.WasmCompatMax(
+				)))) | uint64(math.Float32bits(float32(moremath.WasmCompatMax(
 					float64(math.Float32frombits(uint32(x1lo>>32))),
 					float64(math.Float32frombits(uint32(x2lo>>32))),
-				)) << 32)
+				))))<<32
 			case wazeroir.ShapeF64x2:
 				retHi = math.Float64bits(moremath.WasmCompatMax(
 					math.Float64frombits(x1hi),
@@ -3477,6 +3477,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 					uint64(i8RoundingAverage(uint8(x1hi>>24), uint8(x2hi>>24)))<<24 | uint64(i8RoundingAverage(uint8(x1hi>>16), uint8(x2hi>>16)))<<16 |
 					uint64(i8RoundingAverage(uint8(x1hi>>40), uint8(x2hi>>40)))<<40 | uint64(i8RoundingAverage(uint8(x1hi>>32), uint8(x2hi>>32)))<<32 |
 					uint64(i8RoundingAverage(uint8(x1hi>>56), uint8(x2hi>>56)))<<56 | uint64(i8RoundingAverage(uint8(x1hi>>48), uint8(x2hi>>48)))<<48
+				fmt.Println(retLo, retHi)
 			case wazeroir.ShapeI16x8:
 				retLo = uint64(i16RoundingAverage(uint16(x1lo), uint16(x2lo))) |
 					uint64(i16RoundingAverage(uint16(x1lo>>16), uint16(x2lo>>16)))<<16 |
@@ -3497,12 +3498,12 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 
 func i8RoundingAverage(v1, v2 byte) byte {
 	// https://github.com/WebAssembly/spec/blob/main/proposals/simd/SIMD.md#lane-wise-integer-rounding-average
-	return (v1 + v2 + 1) / 2
+	return byte((uint16(v1) + uint16(v2) + uint16(1)) / 2)
 }
 
 func i16RoundingAverage(v1, v2 uint16) uint16 {
 	// https://github.com/WebAssembly/spec/blob/main/proposals/simd/SIMD.md#lane-wise-integer-rounding-average
-	return (v1 + v2 + 1) / 2
+	return uint16((uint32(v1) + uint32(v2) + 1) / 2)
 }
 
 func i8Abs(v byte) byte {
