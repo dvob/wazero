@@ -1325,9 +1325,9 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				OpcodeVecF32x4Add, OpcodeVecF32x4Sub, OpcodeVecF32x4Mul, OpcodeVecF32x4Div,
 				OpcodeVecF64x2Add, OpcodeVecF64x2Sub, OpcodeVecF64x2Mul, OpcodeVecF64x2Div,
 				OpcodeVecI8x16MinS, OpcodeVecI8x16MinU, OpcodeVecI8x16MaxS, OpcodeVecI8x16MaxU,
-				OpcodeVecI8x16ArgrU,
+				OpcodeVecI8x16AvgrU,
 				OpcodeVecI16x8MinS, OpcodeVecI16x8MinU, OpcodeVecI16x8MaxS, OpcodeVecI16x8MaxU,
-				OpcodeVecI16x8ArgrU,
+				OpcodeVecI16x8AvgrU,
 				OpcodeVecI32x4MinS, OpcodeVecI32x4MinU, OpcodeVecI32x4MaxS, OpcodeVecI32x4MaxU,
 				OpcodeVecF32x4Min, OpcodeVecF32x4Max, OpcodeVecF64x2Min, OpcodeVecF64x2Max:
 				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {

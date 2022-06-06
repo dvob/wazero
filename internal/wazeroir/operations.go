@@ -360,6 +360,16 @@ func (o OperationKind) String() (ret string) {
 		ret = "V128Neg"
 	case OperationKindV128Sqrt:
 		ret = "V128Sqrt"
+	case OperationKindV128Abs:
+		ret = "V128Abs"
+	case OperationKindV128Popcnt:
+		ret = "V128Popcnt"
+	case OperationKindV128Min:
+		ret = "V128Min"
+	case OperationKindV128Max:
+		ret = "V128Max"
+	case OperationKindV128AvgrU:
+		ret = "V128Avgr_uU"
 	default:
 		panic(fmt.Errorf("unknown operation %d", o))
 	}
@@ -487,6 +497,11 @@ const (
 	OperationKindV128Div
 	OperationKindV128Neg
 	OperationKindV128Sqrt
+	OperationKindV128Abs
+	OperationKindV128Popcnt
+	OperationKindV128Min
+	OperationKindV128Max
+	OperationKindV128AvgrU
 
 	// operationKindEnd is always placed at the bottom of this iota definition to be used in the test.
 	operationKindEnd
@@ -1735,4 +1750,56 @@ type OperationV128Sqrt struct {
 // Kind implements Operation.Kind.
 func (o *OperationV128Sqrt) Kind() OperationKind {
 	return OperationKindV128Sqrt
+}
+
+// OperationV128Abs implements Operation.
+type OperationV128Abs struct {
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Abs) Kind() OperationKind {
+	return OperationKindV128Abs
+}
+
+// OperationV128Popcnt implements Operation.
+type OperationV128Popcnt struct {
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Popcnt) Kind() OperationKind {
+	return OperationKindV128Popcnt
+}
+
+// OperationV128Min implements Operation.
+type OperationV128Min struct {
+	Shape  Shape
+	Signed bool
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Min) Kind() OperationKind {
+	return OperationKindV128Min
+}
+
+// OperationV128Max implements Operation.
+type OperationV128Max struct {
+	Shape  Shape
+	Signed bool
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Max) Kind() OperationKind {
+	return OperationKindV128Max
+}
+
+// OperationV128AvgrU implements Operation.
+type OperationV128AvgrU struct {
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128AvgrU) Kind() OperationKind {
+	return OperationKindV128AvgrU
 }

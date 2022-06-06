@@ -487,7 +487,7 @@ const (
 	OpcodeVecI8x16MinU    OpcodeVec = 0x77
 	OpcodeVecI8x16MaxS    OpcodeVec = 0x78
 	OpcodeVecI8x16MaxU    OpcodeVec = 0x79
-	OpcodeVecI8x16ArgrU   OpcodeVec = 0x7b
+	OpcodeVecI8x16AvgrU   OpcodeVec = 0x7b
 
 	// i16 misc.
 
@@ -518,7 +518,7 @@ const (
 	OpcodeVecI16x8MinU                 OpcodeVec = 0x97
 	OpcodeVecI16x8MaxS                 OpcodeVec = 0x98
 	OpcodeVecI16x8MaxU                 OpcodeVec = 0x99
-	OpcodeVecI16x8ArgrU                OpcodeVec = 0x9b
+	OpcodeVecI16x8AvgrU                OpcodeVec = 0x9b
 	OpcodeVecI16x8ExtMulLowI8x16S      OpcodeVec = 0x9c
 	OpcodeVecI16x8ExtMulHighI8x16S     OpcodeVec = 0x9d
 	OpcodeVecI16x8ExtMulLowI8x16U      OpcodeVec = 0x9e
@@ -1187,7 +1187,7 @@ const (
 	OpcodeVecI8x16MinUName                 = "i8x16.min_u"
 	OpcodeVecI8x16MaxSName                 = "i8x16.max_s"
 	OpcodeVecI8x16MaxUName                 = "i8x16.max_u"
-	OpcodeVecI8x16ArgrUName                = "i8x16.argr_u"
+	OpcodeVecI8x16AvgrUName                = "i8x16.avgr_u"
 	OpcodeVecI16x8ExtaddPairwiseI8x16SName = "i16x8.extadd_pairwise_i8x16_s"
 	OpcodeVecI16x8ExtaddPairwiseI8x16UName = "i16x8.extadd_pairwise_i8x16_u"
 	OpcodeVecI16x8AbsName                  = "i16x8.abs"
@@ -1215,7 +1215,7 @@ const (
 	OpcodeVecI16x8MinUName                 = "i16x8.min_u"
 	OpcodeVecI16x8MaxSName                 = "i16x8.max_s"
 	OpcodeVecI16x8MaxUName                 = "i16x8.max_u"
-	OpcodeVecI16x8ArgrUName                = "i16x8.argr_u"
+	OpcodeVecI16x8AvgrUName                = "i16x8.avgr_u"
 	OpcodeVecI16x8ExtMulLowI8x16SName      = "i16x8.extmul_low_i8x16_s"
 	OpcodeVecI16x8ExtMulHighI8x16SName     = "i16x8.extmul_high_i8x16_s"
 	OpcodeVecI16x8ExtMulLowI8x16UName      = "i16x8.extmul_low_i8x16_u"
@@ -1426,7 +1426,7 @@ var vectorInstructionName = map[OpcodeVec]string{
 	OpcodeVecI8x16MinU:                 OpcodeVecI8x16MinUName,
 	OpcodeVecI8x16MaxS:                 OpcodeVecI8x16MaxSName,
 	OpcodeVecI8x16MaxU:                 OpcodeVecI8x16MaxUName,
-	OpcodeVecI8x16ArgrU:                OpcodeVecI8x16ArgrUName,
+	OpcodeVecI8x16AvgrU:                OpcodeVecI8x16AvgrUName,
 	OpcodeVecI16x8ExtaddPairwiseI8x16S: OpcodeVecI16x8ExtaddPairwiseI8x16SName,
 	OpcodeVecI16x8ExtaddPairwiseI8x16U: OpcodeVecI16x8ExtaddPairwiseI8x16UName,
 	OpcodeVecI16x8Abs:                  OpcodeVecI16x8AbsName,
@@ -1454,7 +1454,7 @@ var vectorInstructionName = map[OpcodeVec]string{
 	OpcodeVecI16x8MinU:                 OpcodeVecI16x8MinUName,
 	OpcodeVecI16x8MaxS:                 OpcodeVecI16x8MaxSName,
 	OpcodeVecI16x8MaxU:                 OpcodeVecI16x8MaxUName,
-	OpcodeVecI16x8ArgrU:                OpcodeVecI16x8ArgrUName,
+	OpcodeVecI16x8AvgrU:                OpcodeVecI16x8AvgrUName,
 	OpcodeVecI16x8ExtMulLowI8x16S:      OpcodeVecI16x8ExtMulLowI8x16SName,
 	OpcodeVecI16x8ExtMulHighI8x16S:     OpcodeVecI16x8ExtMulHighI8x16SName,
 	OpcodeVecI16x8ExtMulLowI8x16U:      OpcodeVecI16x8ExtMulLowI8x16UName,

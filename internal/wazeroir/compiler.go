@@ -2480,6 +2480,106 @@ operatorSwitch:
 			c.emit(
 				&OperationV128Div{Shape: ShapeF64x2},
 			)
+		case wasm.OpcodeVecI8x16Abs:
+			c.emit(
+				&OperationV128Abs{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI8x16Popcnt:
+			c.emit(
+				&OperationV128Popcnt{},
+			)
+		case wasm.OpcodeVecI16x8Abs:
+			c.emit(
+				&OperationV128Abs{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI32x4Abs:
+			c.emit(
+				&OperationV128Abs{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI64x2Abs:
+			c.emit(
+				&OperationV128Abs{Shape: ShapeI64x2},
+			)
+		case wasm.OpcodeVecF32x4Abs:
+			c.emit(
+				&OperationV128Abs{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Abs:
+			c.emit(
+				&OperationV128Abs{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecI8x16MinS:
+			c.emit(
+				&OperationV128Min{Signed: true, Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI8x16MinU:
+			c.emit(
+				&OperationV128Min{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI8x16MaxS:
+			c.emit(
+				&OperationV128Max{Shape: ShapeI8x16, Signed: true},
+			)
+		case wasm.OpcodeVecI8x16MaxU:
+			c.emit(
+				&OperationV128Max{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI8x16AvgrU:
+			c.emit(
+				&OperationV128AvgrU{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI16x8MinS:
+			c.emit(
+				&OperationV128Min{Signed: true, Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI16x8MinU:
+			c.emit(
+				&OperationV128Min{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI16x8MaxS:
+			c.emit(
+				&OperationV128Max{Shape: ShapeI16x8, Signed: true},
+			)
+		case wasm.OpcodeVecI16x8MaxU:
+			c.emit(
+				&OperationV128Max{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI16x8AvgrU:
+			c.emit(
+				&OperationV128AvgrU{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI32x4MinS:
+			c.emit(
+				&OperationV128Min{Signed: true, Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI32x4MinU:
+			c.emit(
+				&OperationV128Min{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI32x4MaxS:
+			c.emit(
+				&OperationV128Max{Shape: ShapeI32x4, Signed: true},
+			)
+		case wasm.OpcodeVecI32x4MaxU:
+			c.emit(
+				&OperationV128Max{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecF32x4Min:
+			c.emit(
+				&OperationV128Min{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF32x4Max:
+			c.emit(
+				&OperationV128Max{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Min:
+			c.emit(
+				&OperationV128Min{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecF64x2Max:
+			c.emit(
+				&OperationV128Max{Shape: ShapeF64x2},
+			)
 		default:
 			return fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))
 		}
