@@ -1071,14 +1071,6 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 				pc += 16
 				valueTypeStack.push(ValueTypeV128)
-			case OpcodeVecI8x16Add, OpcodeVecI16x8Add, OpcodeVecI32x4Add, OpcodeVecI64x2Add,
-				OpcodeVecI8x16Sub, OpcodeVecI16x8Sub, OpcodeVecI32x4Sub, OpcodeVecI64x2Sub:
-				for i := 0; i < 2; i++ {
-					if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
-						return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
-					}
-				}
-				valueTypeStack.push(ValueTypeV128)
 			case OpcodeVecV128AnyTrue, OpcodeVecI8x16AllTrue, OpcodeVecI16x8AllTrue, OpcodeVecI32x4AllTrue, OpcodeVecI64x2AllTrue,
 				OpcodeVecI8x16BitMask, OpcodeVecI16x8BitMask, OpcodeVecI32x4BitMask, OpcodeVecI64x2BitMask:
 				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
@@ -1315,6 +1307,25 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
 					return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
+				}
+				valueTypeStack.push(ValueTypeV128)
+			case OpcodeVecI8x16Neg, OpcodeVecI16x8Neg, OpcodeVecI32x4Neg, OpcodeVecI64x2Neg, OpcodeVecF32x4Neg, OpcodeVecF64x2Neg,
+				OpcodeVecF32x4Sqrt, OpcodeVecF64x2Sqrt:
+				if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
+					return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
+				}
+				valueTypeStack.push(ValueTypeV128)
+
+			case OpcodeVecI8x16Add, OpcodeVecI8x16AddSatS, OpcodeVecI8x16AddSatU, OpcodeVecI8x16Sub, OpcodeVecI8x16SubSatS, OpcodeVecI8x16SubSatU,
+				OpcodeVecI16x8Add, OpcodeVecI16x8AddSatS, OpcodeVecI16x8AddSatU, OpcodeVecI16x8Sub, OpcodeVecI16x8SubSatS, OpcodeVecI16x8SubSatU, OpcodeVecI16x8Mul,
+				OpcodeVecI32x4Add, OpcodeVecI32x4Sub, OpcodeVecI32x4Mul,
+				OpcodeVecI64x2Add, OpcodeVecI64x2Sub, OpcodeVecI64x2Mul,
+				OpcodeVecF32x4Add, OpcodeVecF32x4Sub, OpcodeVecF32x4Mul, OpcodeVecF32x4Div,
+				OpcodeVecF64x2Add, OpcodeVecF64x2Sub, OpcodeVecF64x2Mul, OpcodeVecF64x2Div:
+				for i := 0; i < 2; i++ {
+					if err := valueTypeStack.popAndVerifyType(ValueTypeV128); err != nil {
+						return fmt.Errorf("cannot pop the operand for %s: %v", vectorInstructionName[vecOpcode], err)
+					}
 				}
 				valueTypeStack.push(ValueTypeV128)
 			default:

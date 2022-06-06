@@ -645,6 +645,20 @@ func (e *engine) lowerIR(ir *wazeroir.CompilationResult) (*code, error) {
 			op.b1 = o.Shape
 		case *wazeroir.OperationV128Cmp:
 			op.b1 = o.Type
+		case *wazeroir.OperationV128AddSat:
+			op.b1 = o.Shape
+			op.b3 = o.Signed
+		case *wazeroir.OperationV128SubSat:
+			op.b1 = o.Shape
+			op.b3 = o.Signed
+		case *wazeroir.OperationV128Mul:
+			op.b1 = o.Shape
+		case *wazeroir.OperationV128Div:
+			op.b1 = o.Shape
+		case *wazeroir.OperationV128Neg:
+			op.b1 = o.Shape
+		case *wazeroir.OperationV128Sqrt:
+			op.b1 = o.Shape
 		default:
 			panic(fmt.Errorf("BUG: unimplemented operation %s", op.kind.String()))
 		}
@@ -1914,6 +1928,12 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			case wazeroir.ShapeI64x2:
 				ce.pushValue(xLow + yLow)
 				ce.pushValue(xHigh + yHigh)
+			case wazeroir.ShapeF32x4:
+				ce.pushValue(uint64(math.Float32bits(math.Float32frombits(uint32(xLow)) + math.Float32frombits(uint32(yLow)))))
+				ce.pushValue(uint64(math.Float32bits(math.Float32frombits(uint32(xHigh)) + math.Float32frombits(uint32(yHigh)))))
+			case wazeroir.ShapeF64x2:
+				ce.pushValue(math.Float64bits(math.Float64frombits(xLow) + math.Float64frombits(yLow)))
+				ce.pushValue(math.Float64bits(math.Float64frombits(xHigh) + math.Float64frombits(yHigh)))
 			}
 			frame.pc++
 		case wazeroir.OperationKindV128Sub:
@@ -1948,6 +1968,12 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			case wazeroir.ShapeI64x2:
 				ce.pushValue(xLow - yLow)
 				ce.pushValue(xHigh - yHigh)
+			case wazeroir.ShapeF32x4:
+				ce.pushValue(uint64(math.Float32bits(math.Float32frombits(uint32(xLow)) - math.Float32frombits(uint32(yLow)))))
+				ce.pushValue(uint64(math.Float32bits(math.Float32frombits(uint32(xHigh)) - math.Float32frombits(uint32(yHigh)))))
+			case wazeroir.ShapeF64x2:
+				ce.pushValue(math.Float64bits(math.Float64frombits(xLow) - math.Float64frombits(yLow)))
+				ce.pushValue(math.Float64bits(math.Float64frombits(xHigh) - math.Float64frombits(yHigh)))
 			}
 			frame.pc++
 		case wazeroir.OperationKindV128Load:
@@ -2923,6 +2949,73 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 
 			ce.pushValue(retLo)
 			ce.pushValue(retHi)
+			frame.pc++
+		case wazeroir.OperationKindV128AddSat:
+			frame.pc++
+
+		case wazeroir.OperationKindV128SubSat:
+			frame.pc++
+
+		case wazeroir.OperationKindV128Mul:
+			x2hi, x2lo := ce.popValue(), ce.popValue()
+			x1hi, x1lo := ce.popValue(), ce.popValue()
+			var retLo, retHi uint64
+			switch op.b1 {
+			case wazeroir.ShapeI16x8:
+			case wazeroir.ShapeI32x4:
+			case wazeroir.ShapeI64x2:
+
+			case wazeroir.ShapeF32x4:
+				retHi = uint64(math.Float32bits(math.Float32frombits(uint32(x1hi))*math.Float32frombits(uint32(x2hi)))) |
+					(uint64(math.Float32bits(math.Float32frombits(uint32(x1hi>>32))*math.Float32frombits(uint32(x2hi>>32)))) << 32)
+				retLo = uint64(math.Float32bits(math.Float32frombits(uint32(x1lo))*math.Float32frombits(uint32(x2lo)))) |
+					(uint64(math.Float32bits(math.Float32frombits(uint32(x1lo>>32))*math.Float32frombits(uint32(x2lo>>32)))) << 32)
+			case wazeroir.ShapeF64x2:
+				retHi = math.Float64bits(math.Float64frombits(x1hi) / math.Float64frombits(x2hi))
+				retLo = math.Float64bits(math.Float64frombits(x1lo) / math.Float64frombits(x2lo))
+			}
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
+		case wazeroir.OperationKindV128Div:
+			x2hi, x2lo := ce.popValue(), ce.popValue()
+			x1hi, x1lo := ce.popValue(), ce.popValue()
+			var retLo, retHi uint64
+			if op.b1 == wazeroir.ShapeF64x2 {
+				retHi = math.Float64bits(math.Float64frombits(x1hi) / math.Float64frombits(x2hi))
+				retLo = math.Float64bits(math.Float64frombits(x1lo) / math.Float64frombits(x2lo))
+			} else {
+				retHi = uint64(math.Float32bits(math.Float32frombits(uint32(x1hi))/math.Float32frombits(uint32(x2hi)))) |
+					(uint64(math.Float32bits(math.Float32frombits(uint32(x1hi>>32))/math.Float32frombits(uint32(x2hi>>32)))) << 32)
+				retLo = uint64(math.Float32bits(math.Float32frombits(uint32(x1lo))/math.Float32frombits(uint32(x2lo)))) |
+					(uint64(math.Float32bits(math.Float32frombits(uint32(x1lo>>32))/math.Float32frombits(uint32(x2lo>>32)))) << 32)
+			}
+			ce.pushValue(retLo)
+			ce.pushValue(retHi)
+			frame.pc++
+		case wazeroir.OperationKindV128Neg:
+			hi, lo := ce.popValue(), ce.popValue()
+			if op.b1 == wazeroir.ShapeF64x2 {
+				hi = math.Float64bits(-math.Float64frombits(hi))
+				lo = math.Float64bits(-math.Float64frombits(lo))
+			} else {
+				hi = uint64(math.Float32bits(-math.Float32frombits(uint32(hi)))) |
+					(uint64(math.Float32bits(-math.Float32frombits(uint32(hi>>32)))) << 32)
+				lo = uint64(math.Float32bits(-math.Float32frombits(uint32(lo)))) |
+					(uint64(math.Float32bits(-math.Float32frombits(uint32(lo>>32)))) << 32)
+			}
+			frame.pc++
+		case wazeroir.OperationKindV128Sqrt:
+			hi, lo := ce.popValue(), ce.popValue()
+			if op.b1 == wazeroir.ShapeF64x2 {
+				hi = math.Float64bits(math.Sqrt(math.Float64frombits(hi)))
+				lo = math.Float64bits(math.Sqrt(math.Float64frombits(lo)))
+			} else {
+				hi = uint64(math.Float32bits(float32(math.Sqrt(float64(math.Float32frombits(uint32(hi))))))) |
+					(uint64(math.Float32bits(float32(math.Sqrt(float64(math.Float32frombits(uint32(hi>>32))))))) << 32)
+				lo = uint64(math.Float32bits(float32(math.Sqrt(float64(math.Float32frombits(uint32(lo))))))) |
+					(uint64(math.Float32bits(float32(math.Sqrt(float64(math.Float32frombits(uint32(lo>>32))))))) << 32)
+			}
 			frame.pc++
 		}
 	}

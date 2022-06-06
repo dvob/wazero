@@ -474,9 +474,6 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 		switch vecOp := c.body[c.pc+1]; vecOp {
 		case wasm.OpcodeVecV128Const:
 			return signature_None_V128, nil
-		case wasm.OpcodeVecI8x16Add, wasm.OpcodeVecI16x8Add, wasm.OpcodeVecI32x4Add, wasm.OpcodeVecI64x2Add,
-			wasm.OpcodeVecI8x16Sub, wasm.OpcodeVecI16x8Sub, wasm.OpcodeVecI32x4Sub, wasm.OpcodeVecI64x2Sub:
-			return signature_V128V128_V128, nil
 		case wasm.OpcodeVecV128Load, wasm.OpcodeVecV128Load8x8s, wasm.OpcodeVecV128Load8x8u,
 			wasm.OpcodeVecV128Load16x4s, wasm.OpcodeVecV128Load16x4u, wasm.OpcodeVecV128Load32x2s,
 			wasm.OpcodeVecV128Load32x2u, wasm.OpcodeVecV128Load8Splat, wasm.OpcodeVecV128Load16Splat,
@@ -532,7 +529,8 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 			wasm.OpcodeVecV128AnyTrue,
 			wasm.OpcodeVecI8x16BitMask, wasm.OpcodeVecI16x8BitMask, wasm.OpcodeVecI32x4BitMask, wasm.OpcodeVecI64x2BitMask:
 			return signature_V128_I32, nil
-		case wasm.OpcodeVecV128Not:
+		case wasm.OpcodeVecV128Not, wasm.OpcodeVecI8x16Neg, wasm.OpcodeVecI16x8Neg, wasm.OpcodeVecI32x4Neg, wasm.OpcodeVecI64x2Neg,
+			wasm.OpcodeVecF32x4Neg, wasm.OpcodeVecF64x2Neg, wasm.OpcodeVecF32x4Sqrt, wasm.OpcodeVecF64x2Sqrt:
 			return signature_V128_V128, nil
 		case wasm.OpcodeVecV128Bitselect:
 			return signature_V128V128V128_V32, nil
@@ -545,7 +543,15 @@ func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 			wasm.OpcodeVecI64x2Eq, wasm.OpcodeVecI64x2Ne, wasm.OpcodeVecI64x2LtS, wasm.OpcodeVecI64x2GtS, wasm.OpcodeVecI64x2LeS,
 			wasm.OpcodeVecI64x2GeS, wasm.OpcodeVecF32x4Eq, wasm.OpcodeVecF32x4Ne, wasm.OpcodeVecF32x4Lt, wasm.OpcodeVecF32x4Gt,
 			wasm.OpcodeVecF32x4Le, wasm.OpcodeVecF32x4Ge, wasm.OpcodeVecF64x2Eq, wasm.OpcodeVecF64x2Ne, wasm.OpcodeVecF64x2Lt,
-			wasm.OpcodeVecF64x2Gt, wasm.OpcodeVecF64x2Le, wasm.OpcodeVecF64x2Ge:
+			wasm.OpcodeVecF64x2Gt, wasm.OpcodeVecF64x2Le, wasm.OpcodeVecF64x2Ge,
+			wasm.OpcodeVecI8x16Add, wasm.OpcodeVecI8x16AddSatS, wasm.OpcodeVecI8x16AddSatU, wasm.OpcodeVecI8x16Sub,
+			wasm.OpcodeVecI8x16SubSatS, wasm.OpcodeVecI8x16SubSatU,
+			wasm.OpcodeVecI16x8Add, wasm.OpcodeVecI16x8AddSatS, wasm.OpcodeVecI16x8AddSatU, wasm.OpcodeVecI16x8Sub,
+			wasm.OpcodeVecI16x8SubSatS, wasm.OpcodeVecI16x8SubSatU, wasm.OpcodeVecI16x8Mul,
+			wasm.OpcodeVecI32x4Add, wasm.OpcodeVecI32x4Sub, wasm.OpcodeVecI32x4Mul,
+			wasm.OpcodeVecI64x2Add, wasm.OpcodeVecI64x2Sub, wasm.OpcodeVecI64x2Mul,
+			wasm.OpcodeVecF32x4Add, wasm.OpcodeVecF32x4Sub, wasm.OpcodeVecF32x4Mul, wasm.OpcodeVecF32x4Div,
+			wasm.OpcodeVecF64x2Add, wasm.OpcodeVecF64x2Sub, wasm.OpcodeVecF64x2Mul, wasm.OpcodeVecF64x2Div:
 			return signature_V128V128_V128, nil
 		default:
 			return nil, fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))

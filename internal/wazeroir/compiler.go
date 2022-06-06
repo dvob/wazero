@@ -1730,38 +1730,6 @@ operatorSwitch:
 				&OperationV128Const{Lo: lo, Hi: hi},
 			)
 			c.pc += 7
-		case wasm.OpcodeVecI8x16Add:
-			c.emit(
-				&OperationV128Add{Shape: ShapeI8x16},
-			)
-		case wasm.OpcodeVecI16x8Add:
-			c.emit(
-				&OperationV128Add{Shape: ShapeI16x8},
-			)
-		case wasm.OpcodeVecI32x4Add:
-			c.emit(
-				&OperationV128Add{Shape: ShapeI32x4},
-			)
-		case wasm.OpcodeVecI64x2Add:
-			c.emit(
-				&OperationV128Add{Shape: ShapeI64x2},
-			)
-		case wasm.OpcodeVecI8x16Sub:
-			c.emit(
-				&OperationV128Sub{Shape: ShapeI8x16},
-			)
-		case wasm.OpcodeVecI16x8Sub:
-			c.emit(
-				&OperationV128Sub{Shape: ShapeI16x8},
-			)
-		case wasm.OpcodeVecI32x4Sub:
-			c.emit(
-				&OperationV128Sub{Shape: ShapeI32x4},
-			)
-		case wasm.OpcodeVecI64x2Sub:
-			c.emit(
-				&OperationV128Sub{Shape: ShapeI64x2},
-			)
 		case wasm.OpcodeVecV128Load:
 			arg, err := c.readMemoryArg(wasm.OpcodeI32LoadName)
 			if err != nil {
@@ -2371,6 +2339,146 @@ operatorSwitch:
 		case wasm.OpcodeVecF64x2Ge:
 			c.emit(
 				&OperationV128Cmp{Type: V128CmpTypeF64x2Ge},
+			)
+		case wasm.OpcodeVecI8x16Neg:
+			c.emit(
+				&OperationV128Neg{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI16x8Neg:
+			c.emit(
+				&OperationV128Neg{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI32x4Neg:
+			c.emit(
+				&OperationV128Neg{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI64x2Neg:
+			c.emit(
+				&OperationV128Neg{Shape: ShapeI64x2},
+			)
+		case wasm.OpcodeVecF32x4Neg:
+			c.emit(
+				&OperationV128Neg{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Neg:
+			c.emit(
+				&OperationV128Neg{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecI8x16Add:
+			c.emit(
+				&OperationV128Add{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI16x8Add:
+			c.emit(
+				&OperationV128Add{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI32x4Add:
+			c.emit(
+				&OperationV128Add{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI64x2Add:
+			c.emit(
+				&OperationV128Add{Shape: ShapeI64x2},
+			)
+		case wasm.OpcodeVecF32x4Add:
+			c.emit(
+				&OperationV128Add{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Add:
+			c.emit(
+				&OperationV128Add{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecI8x16Sub:
+			c.emit(
+				&OperationV128Sub{Shape: ShapeI8x16},
+			)
+		case wasm.OpcodeVecI16x8Sub:
+			c.emit(
+				&OperationV128Sub{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI32x4Sub:
+			c.emit(
+				&OperationV128Sub{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI64x2Sub:
+			c.emit(
+				&OperationV128Sub{Shape: ShapeI64x2},
+			)
+		case wasm.OpcodeVecF32x4Sub:
+			c.emit(
+				&OperationV128Sub{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Sub:
+			c.emit(
+				&OperationV128Sub{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecI8x16AddSatS:
+			c.emit(
+				&OperationV128AddSat{Shape: ShapeI8x16, Signed: true},
+			)
+		case wasm.OpcodeVecI8x16AddSatU:
+			c.emit(
+				&OperationV128AddSat{Shape: ShapeI8x16, Signed: false},
+			)
+		case wasm.OpcodeVecI16x8AddSatS:
+			c.emit(
+				&OperationV128AddSat{Shape: ShapeI16x8, Signed: true},
+			)
+		case wasm.OpcodeVecI16x8AddSatU:
+			c.emit(
+				&OperationV128AddSat{Shape: ShapeI16x8, Signed: false},
+			)
+		case wasm.OpcodeVecI8x16SubSatS:
+			c.emit(
+				&OperationV128SubSat{Shape: ShapeI8x16, Signed: true},
+			)
+		case wasm.OpcodeVecI8x16SubSatU:
+			c.emit(
+				&OperationV128SubSat{Shape: ShapeI8x16, Signed: false},
+			)
+		case wasm.OpcodeVecI16x8SubSatS:
+			c.emit(
+				&OperationV128SubSat{Shape: ShapeI16x8, Signed: true},
+			)
+		case wasm.OpcodeVecI16x8SubSatU:
+			c.emit(
+				&OperationV128SubSat{Shape: ShapeI16x8, Signed: false},
+			)
+		case wasm.OpcodeVecI16x8Mul:
+			c.emit(
+				&OperationV128Mul{Shape: ShapeI16x8},
+			)
+		case wasm.OpcodeVecI32x4Mul:
+			c.emit(
+				&OperationV128Mul{Shape: ShapeI32x4},
+			)
+		case wasm.OpcodeVecI64x2Mul:
+			c.emit(
+				&OperationV128Mul{Shape: ShapeI64x2},
+			)
+		case wasm.OpcodeVecF32x4Mul:
+			c.emit(
+				&OperationV128Mul{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Mul:
+			c.emit(
+				&OperationV128Mul{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecF32x4Sqrt:
+			c.emit(
+				&OperationV128Sqrt{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Sqrt:
+			c.emit(
+				&OperationV128Sqrt{Shape: ShapeF64x2},
+			)
+		case wasm.OpcodeVecF32x4Div:
+			c.emit(
+				&OperationV128Div{Shape: ShapeF32x4},
+			)
+		case wasm.OpcodeVecF64x2Div:
+			c.emit(
+				&OperationV128Div{Shape: ShapeF64x2},
 			)
 		default:
 			return fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))

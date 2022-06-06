@@ -469,6 +469,12 @@ const (
 	OperationKindV128Shl
 	OperationKindV128Shr
 	OperationKindV128Cmp
+	OperationKindV128AddSat
+	OperationKindV128SubSat
+	OperationKindV128Mul
+	OperationKindV128Div
+	OperationKindV128Neg
+	OperationKindV128Sqrt
 
 	// operationKindEnd is always placed at the bottom of this iota definition to be used in the test.
 	operationKindEnd
@@ -1650,4 +1656,71 @@ const (
 //Kind implements Operation.Kind.
 func (o *OperationV128Cmp) Kind() OperationKind {
 	return OperationKindV128Cmp
+}
+
+// OperationV128AddSat implements Operation.
+type OperationV128AddSat struct {
+	// Shape is either ShapeI8x16 or ShapeI16x8.
+	Shape  Shape
+	Signed bool
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128AddSat) Kind() OperationKind {
+	return OperationKindV128AddSat
+}
+
+// OperationV128SubSat implements Operation.
+type OperationV128SubSat struct {
+	// Shape is either ShapeI8x16 or ShapeI16x8.
+	Shape  Shape
+	Signed bool
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128SubSat) Kind() OperationKind {
+	return OperationKindV128SubSat
+}
+
+// OperationV128Mul implements Operation.
+type OperationV128Mul struct {
+	// Shape is either ShapeI16x8, ShapeI32x4, ShapeI64x2, ShapeF32x4 or ShapeF64x2.
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Mul) Kind() OperationKind {
+	return OperationKindV128Mul
+}
+
+// OperationV128Div implements Operation.
+type OperationV128Div struct {
+	// Shape is either ShapeF32x4 or ShapeF64x2.
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Div) Kind() OperationKind {
+	return OperationKindV128Div
+}
+
+// OperationV128Neg implements Operation.
+type OperationV128Neg struct {
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Neg) Kind() OperationKind {
+	return OperationKindV128Neg
+}
+
+// OperationV128Sqrt implements Operation.
+type OperationV128Sqrt struct {
+	// Shape is either ShapeF32x4 or ShapeF64x2.
+	Shape Shape
+}
+
+// Kind implements Operation.Kind.
+func (o *OperationV128Sqrt) Kind() OperationKind {
+	return OperationKindV128Sqrt
 }
