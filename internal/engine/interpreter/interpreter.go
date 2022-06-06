@@ -1929,8 +1929,14 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				ce.pushValue(xLow + yLow)
 				ce.pushValue(xHigh + yHigh)
 			case wazeroir.ShapeF32x4:
-				ce.pushValue(uint64(math.Float32bits(math.Float32frombits(uint32(xLow)) + math.Float32frombits(uint32(yLow)))))
-				ce.pushValue(uint64(math.Float32bits(math.Float32frombits(uint32(xHigh)) + math.Float32frombits(uint32(yHigh)))))
+				ce.pushValue(
+					uint64(math.Float32bits(math.Float32frombits(uint32(xLow))+math.Float32frombits(uint32(yLow)))) |
+						(uint64(math.Float32bits(math.Float32frombits(uint32(xLow>>32))+math.Float32frombits(uint32(yLow>>32)))) << 32),
+				)
+				ce.pushValue(
+					uint64(math.Float32bits(math.Float32frombits(uint32(xHigh))+math.Float32frombits(uint32(yHigh)))) |
+						(uint64(math.Float32bits(math.Float32frombits(uint32(xHigh>>32))+math.Float32frombits(uint32(yHigh>>32)))) << 32),
+				)
 			case wazeroir.ShapeF64x2:
 				ce.pushValue(math.Float64bits(math.Float64frombits(xLow) + math.Float64frombits(yLow)))
 				ce.pushValue(math.Float64bits(math.Float64frombits(xHigh) + math.Float64frombits(yHigh)))
@@ -2962,9 +2968,14 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			var retLo, retHi uint64
 			switch op.b1 {
 			case wazeroir.ShapeI16x8:
+				retHi = uint64(uint32(x1hi)*uint32(x2hi)) | (uint64(uint32(x1hi>>16)*uint32(x2hi>>16)) << 16) |
+					(uint64(uint32(x1hi>>32)*uint32(x2hi>>32)) << 32) | (uint64(uint32(x1hi>>48)*uint32(x2hi>>48)) << 48)
 			case wazeroir.ShapeI32x4:
+				retHi = uint64(uint32(x1hi)*uint32(x2hi)) | (uint64(uint32(x1hi>>32)*uint32(x2hi>>32)) << 32)
+				retHi = uint64(uint32(x1lo)*uint32(x2lo)) | (uint64(uint32(x1lo>>32)*uint32(x2lo>>32)) << 32)
 			case wazeroir.ShapeI64x2:
-
+				retHi = x1hi + x2hi
+				retLo = x1lo + x2lo
 			case wazeroir.ShapeF32x4:
 				retHi = uint64(math.Float32bits(math.Float32frombits(uint32(x1hi))*math.Float32frombits(uint32(x2hi)))) |
 					(uint64(math.Float32bits(math.Float32frombits(uint32(x1hi>>32))*math.Float32frombits(uint32(x2hi>>32)))) << 32)
