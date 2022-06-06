@@ -74,6 +74,7 @@ type (
 
 func (c commandActionVal) String() string {
 	var v string
+	valTypeStr := c.ValType
 	switch c.ValType {
 	case "i32":
 		v = c.Value.(string)
@@ -117,8 +118,9 @@ func (c commandActionVal) String() string {
 			strs = append(strs, v.(string))
 		}
 		v = strings.Join(strs, ",")
+		valTypeStr = fmt.Sprintf("v128[lane=%s]", c.LaneType)
 	}
-	return fmt.Sprintf("{type: %s, value: %v}", c.ValType, v)
+	return fmt.Sprintf("{type: %s, value: %v}", valTypeStr, v)
 }
 
 func (c command) String() string {
@@ -180,7 +182,6 @@ func (c commandActionVal) toUint64s() (ret []uint64) {
 		if !ok {
 			panic("BUG")
 		}
-		var low, high uint64
 		var width, valNum int
 		switch c.LaneType {
 		case "i8":
@@ -198,42 +199,39 @@ func (c commandActionVal) toUint64s() (ret []uint64) {
 		default:
 			panic("BUG")
 		}
-		for i := 0; i < valNum/2; i++ {
-			str := strValues[i].(string)
-			if strings.Contains(str, "nan") {
-				if width == 64 {
-					low |= math.Float64bits(math.NaN()) << (i * width)
-				} else {
-					low |= uint64(math.Float32bits(float32(math.NaN()))) << (i * width)
-				}
-			} else {
-				v, err := strconv.ParseUint(strValues[i].(string), 10, width)
-				if err != nil {
-					panic(err)
-				}
-				low |= v << (i * width)
-			}
-		}
-		for i := valNum / 2; i < valNum; i++ {
-			str := strValues[i].(string)
-			if strings.Contains(str, "nan") {
-				if width == 64 {
-					high |= math.Float64bits(math.NaN()) << (i * width)
-				} else {
-					high |= uint64(math.Float32bits(float32(math.NaN()))) << (i * width)
-				}
-			} else {
-				v, err := strconv.ParseUint(str, 10, width)
-				if err != nil {
-					panic(err)
-				}
-				high |= v << ((i - valNum/2) * width)
-			}
-		}
-		return []uint64{low, high}
+		lo, hi := buildLaneUint64(strValues, width, valNum)
+		return []uint64{lo, hi}
 	} else {
 		return []uint64{c.toUint64()}
 	}
+}
+
+func buildLaneUint64(raw []interface{}, width, valNum int) (lo, hi uint64) {
+	for i := 0; i < valNum; i++ {
+		str := raw[i].(string)
+
+		var v uint64
+		var err error
+		if strings.Contains(str, "nan") {
+			if width == 64 {
+				v = math.Float64bits(math.NaN())
+			} else {
+				v = uint64(math.Float32bits(float32(math.NaN())))
+			}
+		} else {
+			v, err = strconv.ParseUint(str, 10, width)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		if half := valNum / 2; i < half {
+			lo |= v << (i * width)
+		} else {
+			hi |= v << ((i - half) * width)
+		}
+	}
+	return
 }
 
 func (c commandActionVal) toUint64() (ret uint64) {
@@ -469,7 +467,13 @@ func Run(t *testing.T, testDataFS embed.FS, newEngine func(wasm.Features) wasm.E
 							vals, types, err := callFunction(ns, moduleName, c.Action.Field, args...)
 							require.NoError(t, err, msg)
 							require.Equal(t, len(exps), len(vals), msg)
-							requireValuesEq(t, vals, exps, types, msg)
+							laneTypes := map[int]string{}
+							for i, expV := range c.Exps {
+								if expV.ValType == "v128" {
+									laneTypes[i] = expV.LaneType
+								}
+							}
+							requireValuesEq(t, vals, exps, types, laneTypes, msg)
 						case "get":
 							_, exps := c.getAssertReturnArgsExps()
 							require.Equal(t, 1, len(exps))
@@ -625,24 +629,28 @@ func testdataPath(filename string) string {
 	return fmt.Sprintf("testdata/%s", filename)
 }
 
-func requireValuesEq(t *testing.T, actual, exps []uint64, valTypes []wasm.ValueType, msg string) {
-	var expectedTypesVectorFlattend []wasm.ValueType
-	for _, tp := range valTypes {
+func requireValuesEq(t *testing.T, actual, exps []uint64, valTypes []wasm.ValueType, laneTypes map[int]string, msg string) {
+	var expectedTypesVectorFlattened []wasm.ValueType
+	var laneTypesFlattened = map[int]string{}
+	for i, tp := range valTypes {
 		if tp != wasm.ValueTypeV128 {
-			expectedTypesVectorFlattend = append(expectedTypesVectorFlattend, tp)
+			expectedTypesVectorFlattened = append(expectedTypesVectorFlattened, tp)
 		} else {
-			expectedTypesVectorFlattend = append(expectedTypesVectorFlattend, wasm.ValueTypeI64)
-			expectedTypesVectorFlattend = append(expectedTypesVectorFlattend, wasm.ValueTypeI64)
+			expectedTypesVectorFlattened = append(expectedTypesVectorFlattened, wasm.ValueTypeV128)
+			laneTypesFlattened[len(expectedTypesVectorFlattened)] = laneTypes[i]
+			expectedTypesVectorFlattened = append(expectedTypesVectorFlattened, wasm.ValueTypeV128)
+			laneTypesFlattened[len(expectedTypesVectorFlattened)+1] = laneTypes[i]
 		}
 	}
 
 	result := fmt.Sprintf("\thave (%v)\n\twant (%v)", actual, exps)
 	for i := range exps {
-		requireValueEq(t, actual[i], exps[i], expectedTypesVectorFlattend[i], msg+"\n"+result)
+		requireValueEq(t, actual[i], exps[i],
+			expectedTypesVectorFlattened[i], laneTypesFlattened[i], msg+"\n"+result)
 	}
 }
 
-func requireValueEq(t *testing.T, actual, expected uint64, valType wasm.ValueType, msg string) {
+func requireValueEq(t *testing.T, actual, expected uint64, valType wasm.ValueType, laneType, msg string) {
 	switch valType {
 	case wasm.ValueTypeI32:
 		require.Equal(t, uint32(expected), uint32(actual), msg)
@@ -668,6 +676,33 @@ func requireValueEq(t *testing.T, actual, expected uint64, valType wasm.ValueTyp
 		require.Equal(t, expected, actual, msg)
 	case wasm.ValueTypeFuncref:
 		require.Equal(t, expected, actual, msg)
+	case wasm.ValueTypeV128:
+		switch laneType {
+		case "i8", "i16", "i32":
+			require.Equal(t, uint32(expected), uint32(actual), msg)
+		case "i64":
+			require.Equal(t, expected, actual, msg)
+		case "f32":
+			for _, vs := range [][2]float32{
+				{math.Float32frombits(uint32(expected)), math.Float32frombits(uint32(actual))},
+				{math.Float32frombits(uint32(expected >> 32)), math.Float32frombits(uint32(actual >> 32))},
+			} {
+				expLane, actualLane := vs[0], vs[1]
+				if math.IsNaN(float64(expLane)) { // NaN cannot be compared with themselves, so we have to use IsNaN
+					require.True(t, math.IsNaN(float64(actualLane)), msg)
+				} else {
+					require.Equal(t, expLane, actualLane, msg)
+				}
+			}
+		case "f64":
+			expF := math.Float64frombits(expected)
+			actualF := math.Float64frombits(actual)
+			if math.IsNaN(expF) { // NaN cannot be compared with themselves, so we have to use IsNaN
+				require.True(t, math.IsNaN(actualF), msg)
+			} else {
+				require.Equal(t, expF, actualF, msg)
+			}
+		}
 	default:
 		t.Fatal(msg)
 	}

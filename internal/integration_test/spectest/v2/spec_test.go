@@ -2,6 +2,8 @@ package spectest
 
 import (
 	"embed"
+	"fmt"
+	"math"
 	"path"
 	"runtime"
 	"strings"
@@ -48,6 +50,10 @@ func TestCompiler(t *testing.T) {
 }
 
 func TestInterpreter(t *testing.T) {
+	v := math.MinInt8
+	uv := byte(v)
+	fmt.Printf("%x\n", uv)
+
 	spectest.Run(t, testcases, interpreter.NewEngine, enabledFeatures, func(jsonname string) bool {
 		// TODO: remove after SIMD proposal
 		if strings.Contains(jsonname, "simd") {
@@ -57,21 +63,16 @@ func TestInterpreter(t *testing.T) {
 				"simd_load_extend.json", "simd_load_splat.json", "simd_load_zero.json", "simd_store.json",
 				"simd_store16_lane.json", "simd_store32_lane.json", "simd_store64_lane.json", "simd_store8_lane.json",
 				"simd_bitwise.json", "simd_boolean.json", "simd_bit_shift.json", "simd_i8x16_cmp.json", "simd_i16x8_cmp.json",
-				"simd_i32x4_cmp.json", "simd_i64x2_cmp.json", "simd_f32x4_cmp.json", "simd_f64x2_cmp.json":
+				"simd_i32x4_cmp.json", "simd_i64x2_cmp.json", "simd_f32x4_cmp.json", "simd_f64x2_cmp.json",
+				"simd_f32x4_arith.json", "simd_f64x2_arith.json", "simd_i16x8_arith.json", "simd_i64x2_arith.json",
+				"simd_i32x4_arith.json", "simd_i8x16_arith.json", "simd_i16x8_sat_arith.json", "simd_i8x16_sat_arith.json":
 				return false
-			case "simd_f32x4_arith.json",
-				"simd_f64x2_arith.json",
-				"simd_i16x8_arith.json",
+			case
 				"simd_i16x8_arith2.json",
-				"simd_i16x8_sat_arith.json",
-				"simd_i32x4_arith.json",
+				"sid_i8x16_arith2.json",
 				"simd_i32x4_arith2.json",
-				"simd_i64x2_arith.json",
-				"simd_i64x2_arith2.json",
-				"simd_i8x16_arith.json",
-				"simd_i8x16_arith2.json",
-				"simd_i8x16_sat_arith.json":
-				return true
+				"simd_i64x2_arith2.json":
+				return false
 			default:
 				return false // others not supported, yet!
 			}
