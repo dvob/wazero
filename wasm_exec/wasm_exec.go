@@ -59,7 +59,6 @@ type builder struct {
 func (b *builder) moduleBuilder() wazero.ModuleBuilder {
 	g := &jsWasm{}
 	return b.r.NewModuleBuilder("go").
-		ExportFunction("debug", g.debug).
 		ExportFunction("runtime.wasmExit", g._wasmExit).
 		ExportFunction("runtime.wasmWrite", g._wasmWrite).
 		ExportFunction("runtime.resetMemoryDataView", g._resetMemoryDataView).
@@ -67,7 +66,24 @@ func (b *builder) moduleBuilder() wazero.ModuleBuilder {
 		ExportFunction("runtime.walltime", g._walltime).
 		ExportFunction("runtime.scheduleTimeoutEvent", g._scheduleTimeoutEvent).
 		ExportFunction("runtime.clearTimeoutEvent", g._clearTimeoutEvent).
-		ExportFunction("runtime.getRandomData", g._getRandomData)
+		ExportFunction("runtime.getRandomData", g._getRandomData).
+		ExportFunction("syscall/js.finalizeRef", g._finalizeRef).
+		ExportFunction("syscall/js.stringVal", g._stringVal).
+		ExportFunction("syscall/js.valueGet", g._valueGet).
+		ExportFunction("syscall/js.valueSet", g._valueSet).
+		ExportFunction("syscall/js.valueDelete", g._valueDelete).
+		ExportFunction("syscall/js.valueIndex", g._valueIndex).
+		ExportFunction("syscall/js.valueSetIndex", g._valueSetIndex).
+		ExportFunction("syscall/js.valueCall", g._valueCall).
+		ExportFunction("syscall/js.valueInvoke", g._valueInvoke).
+		ExportFunction("syscall/js.valueNew", g._valueNew).
+		ExportFunction("syscall/js.valueLength", g._valueLength).
+		ExportFunction("syscall/js.valuePrepareString", g._valuePrepareString).
+		//ExportFunction("syscall/js.valueLoadString", g._valueLoadString).
+		//ExportFunction("syscall/js.valueInstanceOf", g._valueInstanceOf).
+		//ExportFunction("syscall/js.copyBytesToGo", g._copyBytesToGo).
+		//ExportFunction("syscall/js.copyBytesToJS", g._copyBytesToJS).
+		ExportFunction("debug", g.debug)
 }
 
 // Compile implements Builder.Compile
@@ -225,6 +241,20 @@ func (j *jsWasm) scheduleTimeoutEvent(ctx context.Context, mod api.Module, delay
 	return j.scheduleEvent(delay, callResume)
 }
 
+// scheduleEvent schedules an event onto another goroutine after d duration and
+// returns a handle to remove it (removeEvent).
+func (j *jsWasm) scheduleEvent(d time.Duration, f func()) uint32 {
+	j.mux.Lock()
+	defer j.mux.Unlock()
+
+	id := j.nextCallbackTimeoutID
+	j.nextCallbackTimeoutID++
+	// TODO: this breaks the sandbox (proc.checkTimers is shared), so should
+	// be substitutable with a different impl.
+	j.scheduledTimeouts[id] = time.AfterFunc(d, f)
+	return id
+}
+
 // _clearTimeoutEvent converts the GOARCH=wasm stack to be compatible with
 // api.ValueType in order to call clearTimeoutEvent.
 func (j *jsWasm) _clearTimeoutEvent(ctx context.Context, mod api.Module, sp uint32) {
@@ -242,6 +272,20 @@ func (j *jsWasm) clearTimeoutEvent(id uint32) {
 			<-t.C
 		}
 	}
+}
+
+// removeEvent removes an event previously scheduled with scheduleEvent or
+// returns nil, if it was already removed.
+func (j *jsWasm) removeEvent(id uint32) *time.Timer {
+	j.mux.Lock()
+	defer j.mux.Unlock()
+
+	t, ok := j.scheduledTimeouts[id]
+	if ok {
+		delete(j.scheduledTimeouts, id)
+		return t
+	}
+	return nil
 }
 
 // _getRandomData converts the GOARCH=wasm stack to be compatible with
@@ -269,18 +313,334 @@ func (j *jsWasm) getRandomData(ctx context.Context, mod api.Module, buf, bufLen 
 	}
 }
 
-// removeEvent removes an event previously scheduled with scheduleEvent or
-// returns nil, if it was already removed.
-func (j *jsWasm) removeEvent(id uint32) *time.Timer {
-	j.mux.Lock()
-	defer j.mux.Unlock()
+// _finalizeRef converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call finalizeRef.
+func (j *jsWasm) _finalizeRef(ctx context.Context, mod api.Module, sp uint32) {
+	r := requireReadUint32Le(ctx, mod.Memory(), "r", sp+8)
+	j.finalizeRef(ctx, mod, r)
+}
 
-	t, ok := j.scheduledTimeouts[id]
-	if ok {
-		delete(j.scheduledTimeouts, id)
-		return t
+// finalizeRef implements js.finalizeRef, which is used as a
+// runtime.SetFinalizer on the given reference.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L61
+func (j *jsWasm) finalizeRef(ctx context.Context, mod api.Module, r uint32) {
+	panic("unimplemented")
+}
+
+// _stringVal converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call stringVal.
+func (j *jsWasm) _stringVal(ctx context.Context, mod api.Module, sp uint32) {
+	xAddr := requireReadUint64Le(ctx, mod.Memory(), "xAddr", sp+8)
+	xLen := requireReadUint64Le(ctx, mod.Memory(), "xLen", sp+16)
+	xRef := j.stringVal(ctx, mod, xAddr, xLen)
+	requireWriteUint64Le(ctx, mod.Memory(), "xRef", sp+24, xRef)
+}
+
+// stringVal implements js.stringVal, which is used to load the string for
+// `js.ValueOf(x)`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L212
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L305-L308
+func (j *jsWasm) stringVal(ctx context.Context, mod api.Module, xAddr, xLen uint64) uint64 {
+	x := requireRead(ctx, mod.Memory(), "x", uint32(xAddr), uint32(xLen))
+	return j.valueRef(ctx, mod, x)
+}
+
+// _valueGet converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueGet.
+func (j *jsWasm) _valueGet(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	pAddr := requireReadUint64Le(ctx, mod.Memory(), "pAddr", sp+16)
+	pLen := requireReadUint64Le(ctx, mod.Memory(), "pLen", sp+24)
+	xRef := j.valueGet(ctx, mod, vRef, pAddr, pLen)
+	sp = j.refreshSP(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "xRef", sp+32, xRef)
+}
+
+// valueGet implements js.valueGet, which is used to load a js.Value property
+// by name, ex. `v.Get("address")`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L295
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L311-L316
+func (j *jsWasm) valueGet(ctx context.Context, mod api.Module, vRef, pAddr, pLen uint64) uint64 {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	p := requireRead(ctx, mod.Memory(), "p", uint32(pAddr), uint32(pLen))
+	result := j.reflectGet(v, string(p))
+	return j.valueRef(ctx, mod, result)
+}
+
+// _valueSet converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueSet.
+func (j *jsWasm) _valueSet(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	pAddr := requireReadUint64Le(ctx, mod.Memory(), "pAddr", sp+16)
+	pLen := requireReadUint64Le(ctx, mod.Memory(), "pLen", sp+24)
+	xRef := requireReadUint64Le(ctx, mod.Memory(), "xRef", sp+32)
+	j.valueSet(ctx, mod, vRef, pAddr, pLen, xRef)
+}
+
+// valueSet implements js.valueSet, which is used to store a js.Value property
+// by name, ex. `v.Set("address", a)`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L309
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L318-L322
+func (j *jsWasm) valueSet(ctx context.Context, mod api.Module, vRef, pAddr, pLen, xRef uint64) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	p := requireRead(ctx, mod.Memory(), "p", uint32(pAddr), uint32(pLen))
+	x := j.loadValue(ctx, mod, uint32(xRef))
+	j.reflectSet(v, string(p), x)
+}
+
+// _valueDelete converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueDelete.
+func (j *jsWasm) _valueDelete(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	pAddr := requireReadUint64Le(ctx, mod.Memory(), "pAddr", sp+16)
+	pLen := requireReadUint64Le(ctx, mod.Memory(), "pLen", sp+24)
+	j.valueDelete(ctx, mod, vRef, pAddr, pLen)
+}
+
+// valueDelete implements js.valueDelete, which is used to delete a js.Value property
+// by name, ex. `v.Delete("address")`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L321
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L325-L328
+func (j *jsWasm) valueDelete(ctx context.Context, mod api.Module, vRef, pAddr, pLen uint64) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	p := requireRead(ctx, mod.Memory(), "p", uint32(pAddr), uint32(pLen))
+	j.reflectDeleteProperty(v, string(p))
+}
+
+// _valueIndex converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueIndex.
+func (j *jsWasm) _valueIndex(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	i := requireReadUint64Le(ctx, mod.Memory(), "i", sp+16)
+	xRef := j.valueIndex(ctx, mod, vRef, i)
+	sp = j.refreshSP(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "xRef", sp+32, xRef)
+}
+
+// valueIndex implements js.valueIndex, which is used to load a js.Value property
+// by name, ex. `v.Index(0)`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L334
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L331-L334
+func (j *jsWasm) valueIndex(ctx context.Context, mod api.Module, vRef, i uint64) uint64 {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	result := j.reflectGetIndex(v, int(i))
+	return j.valueRef(ctx, mod, result)
+}
+
+// _valueSetIndex converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueSetIndex.
+func (j *jsWasm) _valueSetIndex(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	i := requireReadUint64Le(ctx, mod.Memory(), "i", sp+16)
+	xRef := requireReadUint64Le(ctx, mod.Memory(), "xRef", sp+24)
+	j.valueSetIndex(ctx, mod, vRef, i, xRef)
+}
+
+// valueSetIndex implements js.valueSetIndex, which is used to store a js.Value property
+// by name, ex. `v.SetIndex(0, a)`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L348
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L337-L340
+func (j *jsWasm) valueSetIndex(ctx context.Context, mod api.Module, vRef, i, xRef uint64) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	x := j.loadValue(ctx, mod, uint32(xRef))
+	j.reflectSetIndex(v, int(i), x)
+}
+
+// _valueCall converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueCall.
+func (j *jsWasm) _valueCall(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	mAddr := requireReadUint64Le(ctx, mod.Memory(), "mAddr", sp+16)
+	mLen := requireReadUint64Le(ctx, mod.Memory(), "mLen", sp+24)
+	argsArray := requireReadUint64Le(ctx, mod.Memory(), "argsArray", sp+32)
+	argsLen := requireReadUint64Le(ctx, mod.Memory(), "argsLen", sp+40)
+	xRef, ok := j.valueCall(ctx, mod, vRef, mAddr, mLen, argsArray, argsLen)
+	sp = j.refreshSP(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "xRef", sp+56, xRef)
+	requireWriteByte(ctx, mod.Memory(), "ok", sp+64, byte(ok))
+}
+
+// valueCall implements js.valueCall, which is used to call a js.Value function
+// by name, ex. `document.Call("createElement", "div")`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L394
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L343-L358
+func (j *jsWasm) valueCall(ctx context.Context, mod api.Module, vRef, mAddr, mLen, argsArray, argsLen uint64) (uint64, uint32) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	m := requireRead(ctx, mod.Memory(), "m", uint32(mAddr), uint32(mLen))
+	args := j.loadSliceOfValues(ctx, mod, uint32(argsArray), uint32(argsLen))
+	if result, err := j.reflectApply(m, v, args); err != nil {
+		return j.valueRef(ctx, mod, err), 0
+	} else {
+		return j.valueRef(ctx, mod, result), 1
 	}
-	return nil
+}
+
+// _valueInvoke converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueInvoke.
+func (j *jsWasm) _valueInvoke(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	argsArray := requireReadUint64Le(ctx, mod.Memory(), "argsArray", sp+16)
+	argsLen := requireReadUint64Le(ctx, mod.Memory(), "argsLen", sp+24)
+	xRef, ok := j.valueInvoke(ctx, mod, vRef, argsArray, argsLen)
+	sp = j.refreshSP(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "xRef", sp+40, xRef)
+	requireWriteByte(ctx, mod.Memory(), "ok", sp+48, byte(ok))
+}
+
+// valueInvoke implements js.valueInvoke, which is used to call a js.Value, ex.
+// `add.Invoke(1, 2)`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L413
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L361-L375
+func (j *jsWasm) valueInvoke(ctx context.Context, mod api.Module, vRef, argsArray, argsLen uint64) (uint64, uint32) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	args := j.loadSliceOfValues(ctx, mod, uint32(argsArray), uint32(argsLen))
+	if result, err := j.reflectApply(v, nil, args); err != nil {
+		return j.valueRef(ctx, mod, err), 0
+	} else {
+		return j.valueRef(ctx, mod, result), 1
+	}
+}
+
+// _valueNew converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueNew.
+func (j *jsWasm) _valueNew(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	argsArray := requireReadUint64Le(ctx, mod.Memory(), "argsArray", sp+16)
+	argsLen := requireReadUint64Le(ctx, mod.Memory(), "argsLen", sp+24)
+	xRef, ok := j.valueNew(ctx, mod, vRef, argsArray, argsLen)
+	sp = j.refreshSP(ctx, mod)
+	requireWriteUint64Le(ctx, mod.Memory(), "xRef", sp+40, xRef)
+	requireWriteByte(ctx, mod.Memory(), "ok", sp+48, byte(ok))
+}
+
+// valueNew implements js.valueNew, which is used to call a js.Value, ex.
+// `array.New(2)`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L432
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L380-L391
+func (j *jsWasm) valueNew(ctx context.Context, mod api.Module, vRef, argsArray, argsLen uint64) (uint64, uint32) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	args := j.loadSliceOfValues(ctx, mod, uint32(argsArray), uint32(argsLen))
+	if result, err := j.reflectConstruct(v, args); err != nil {
+		return j.valueRef(ctx, mod, err), 0
+	} else {
+		return j.valueRef(ctx, mod, result), 1
+	}
+}
+
+// _valueLength converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valueLength.
+func (j *jsWasm) _valueLength(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	length := j.valueLength(ctx, mod, vRef)
+	requireWriteUint64Le(ctx, mod.Memory(), "length", sp+16, length)
+}
+
+// valueLength implements js.valueLength, which is used to load the length
+// property of a value, ex. `array.length`.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L372
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L396-L397
+func (j *jsWasm) valueLength(ctx context.Context, mod api.Module, vRef uint64) uint64 {
+	panic("unimplemented")
+}
+
+// _valuePrepareString converts the GOARCH=wasm stack to be compatible with
+// api.ValueType in order to call valuePrepareString.
+func (j *jsWasm) _valuePrepareString(ctx context.Context, mod api.Module, sp uint32) {
+	vRef := requireReadUint64Le(ctx, mod.Memory(), "vRef", sp+8)
+	sAddr, sLen := j.valuePrepareString(ctx, mod, vRef)
+	requireWriteUint64Le(ctx, mod.Memory(), "sAddr", sp+16, sAddr)
+	requireWriteUint64Le(ctx, mod.Memory(), "sLen", sp+24, sLen)
+}
+
+// valuePrepareString implements js.valuePrepareString, which is used to load
+// the string for `obj.String()` (via js.jsString) for string, boolean and
+// number types.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/syscall/js/js.go#L531
+//     https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L402-L405
+func (j *jsWasm) valuePrepareString(ctx context.Context, mod api.Module, vRef uint64) (uint64, uint64) {
+	v := j.loadValue(ctx, mod, uint32(vRef))
+	s := j.valueString(v)
+	return j.valueRef(ctx, mod, s), uint64(len(s))
+}
+
+// reflectGet implements JavaScript's Reflect.get API.
+func (j *jsWasm) reflectGet(target interface{}, propertyKey string) interface{} { // nolint
+	panic("unimplemented")
+}
+
+// reflectGet implements JavaScript's Reflect.get API for an index.
+func (j *jsWasm) reflectGetIndex(target interface{}, i int) interface{} { // nolint
+	panic("unimplemented")
+}
+
+// reflectSet implements JavaScript's Reflect.set API.
+func (j *jsWasm) reflectSet(target interface{}, propertyKey string, value interface{}) { // nolint
+	panic("unimplemented")
+}
+
+// reflectSetIndex implements JavaScript's Reflect.set API for an index.
+func (j *jsWasm) reflectSetIndex(target interface{}, i int, value interface{}) { // nolint
+	panic("unimplemented")
+}
+
+// reflectDeleteProperty implements JavaScript's Reflect.deleteProperty API
+func (j *jsWasm) reflectDeleteProperty(target interface{}, propertyKey string) { // nolint
+	panic("unimplemented")
+}
+
+// reflectApply implements JavaScript's Reflect.apply API
+func (j *jsWasm) reflectApply(target interface{}, thisArgument interface{}, argumentsList []interface{}) (interface{}, error) { // nolint
+	panic("unimplemented")
+}
+
+// reflectConstruct implements JavaScript's Reflect.construct API
+func (j *jsWasm) reflectConstruct(target interface{}, argumentsList []interface{}) (interface{}, error) { // nolint
+	panic("unimplemented")
+}
+
+// valueRef returns 8 bytes to represent either the value or a reference to it.
+// Any side effects besides memory must be cleaned up on wasmExit.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L135-L183
+func (j *jsWasm) valueRef(ctx context.Context, mod api.Module, v interface{}) uint64 { // nolint
+	panic("unimplemented")
+}
+
+// loadValue reads up to 8 bytes at the memory offset `addr` to return the
+// value written by storeValue.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L122-L133
+func (j *jsWasm) loadValue(ctx context.Context, mod api.Module, addr uint32) interface{} { // nolint
+	panic("unimplemented")
+}
+
+// loadSliceOfValues returns a slice of `len` values at the memory offset
+// `addr`
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L191-L199
+func (j *jsWasm) loadSliceOfValues(ctx context.Context, mod api.Module, sliceAddr, sliceLen uint32) []interface{} { // nolint
+	result := make([]interface{}, sliceLen)
+	for i := uint32(0); i < sliceLen; i++ { // nolint
+		result = append(result, j.loadValue(ctx, mod, sliceAddr+i*8))
+	}
+	return result
+}
+
+// valueString returns the string form of JavaScript string, boolean and number types.
+func (j *jsWasm) valueString(v interface{}) string { // nolint
+	panic("unimplemented")
 }
 
 // failIfClosed returns a sys.ExitError if wasmExit was called.
@@ -298,18 +658,6 @@ func getSysCtx(mod api.Module) *internalsys.Context {
 	} else {
 		return internal.Sys
 	}
-}
-
-// scheduleEvent schedules an event onto another goroutine after d duration and
-// returns a handle to remove it (removeEvent).
-func (j *jsWasm) scheduleEvent(d time.Duration, f func()) uint32 {
-	j.mux.Lock()
-	defer j.mux.Unlock()
-
-	id := j.nextCallbackTimeoutID
-	j.nextCallbackTimeoutID++
-	j.scheduledTimeouts[id] = time.AfterFunc(d, f)
-	return id
 }
 
 // requireRead is like api.Memory except that it panics if the offset and
@@ -345,11 +693,11 @@ func requireReadUint64Le(ctx context.Context, mem api.Memory, fieldName string, 
 	return result
 }
 
-// requireWriteUint64Le is like api.Memory except that it panics if the offset
+// requireWriteByte is like api.Memory except that it panics if the offset
 // is out of range.
-func requireWriteUint64Le(ctx context.Context, mem api.Memory, fieldName string, offset uint32, val uint64) {
-	if ok := mem.WriteUint64Le(ctx, offset, val); !ok {
-		panic(fmt.Errorf("Memory.WriteUint64Le(ctx, %d, %d) out of range of memory size %d writing %s",
+func requireWriteByte(ctx context.Context, mem api.Memory, fieldName string, offset uint32, val byte) {
+	if ok := mem.WriteByte(ctx, offset, val); !ok {
+		panic(fmt.Errorf("Memory.WriteByte(ctx, %d, %d) out of range of memory size %d writing %s",
 			offset, val, mem.Size(ctx), fieldName))
 	}
 }
@@ -361,4 +709,25 @@ func requireWriteUint32Le(ctx context.Context, mem api.Memory, fieldName string,
 		panic(fmt.Errorf("Memory.WriteUint32Le(ctx, %d, %d) out of range of memory size %d writing %s",
 			offset, val, mem.Size(ctx), fieldName))
 	}
+}
+
+// requireWriteUint64Le is like api.Memory except that it panics if the offset
+// is out of range.
+func requireWriteUint64Le(ctx context.Context, mem api.Memory, fieldName string, offset uint32, val uint64) {
+	if ok := mem.WriteUint64Le(ctx, offset, val); !ok {
+		panic(fmt.Errorf("Memory.WriteUint64Le(ctx, %d, %d) out of range of memory size %d writing %s",
+			offset, val, mem.Size(ctx), fieldName))
+	}
+}
+
+// refreshSP refreshes the stack pointer, which is needed prior to storeValue
+// when in an operation that can trigger a Go event handler.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/misc/wasm/wasm_exec.js#L210-L213
+func (j *jsWasm) refreshSP(ctx context.Context, mod api.Module) uint32 {
+	ret, err := mod.ExportedFunction("getsp").Call(ctx) // refresh the stack pointer
+	if err != nil {
+		panic(fmt.Errorf("error refreshing stack pointer: %w", err))
+	}
+	return uint32(ret[0])
 }
