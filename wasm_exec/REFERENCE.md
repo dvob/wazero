@@ -51,9 +51,29 @@ functions are imported.
 Except for the "debug" function, all function names are prefixed by their go
 package. Here are the defaults:
 
-* "debug" - unknown
+* "debug" - is always function index zero, but it has unknown use.
 * "runtime.*" - supports system-call like functionality `GOARCH=wasm`
 * "syscall/js.*" - supports the JavaScript model `GOOS=js`
+
+## CallImport conventions
+
+The assembly `CallImport` instruction doesn't compile signatures to WebAssembly
+function types, invoked by the `call` instruction.
+
+Instead, the compiler generates the same signature for all functions: a single
+parameter of the stack pointer, and invokes them via `call.indirect`.
+
+Specifically, any function compiled with `CallImport` has the same function
+type: `(func (param $sp i32))`. `$sp` is the base memory offset to read and
+write parameters to the stack (at 8 byte strides even if the value is 32-bit).
+
+So, implementors need to read the actual parameters from memory. Similarly, if
+there are results, the implementation must write those to memory.
+
+For example, `func walltime() (sec int64, nsec int32)` writes its results to
+memory at offsets `sp+8` and `sp+16` respectively.
+
+## User-defined Host Functions
 
 Users can define their own "go" module function imports by defining a func
 without a body in their source and a `%_wasm.s` or `%_js.s` file that uses the
@@ -71,24 +91,13 @@ RET
 If the package was `main`, the WebAssembly function name would be
 "main.logString". If it was `util` and your `go.mod` module was
 "github.com/user/me", the WebAssembly function name would be
-"github.com/prep/user/me/util.logString"
+"github.com/user/me/util.logString".
 
 Regardless of whether the function import was built-in to Go, or defined by an
-end user, the function type is the same as described below.
-
-## CallImport conventions
-
-The assembly `CallImport` instruction doesn't compile signatures to WebAssembly
-function types. Instead, all functions have a single parameter of the stack
-pointer, and implementors need to read the actual parameters from memory.
-Similarly, if there are results, the implementation must write those to memory.
-
-Specifically, any function compiled with `CallImport` has the same function
-type: `(func (param $sp i32))`. `$sp` is the base memory offset to read and
-write parameters to the stack (at 8 byte strides even if the value is 32-bit).
-
-For example, `func walltime() (sec int64, nsec int32)` writes its results to
-memory at offsets `sp+8` and `sp+16` respectively.
+end user, all imports use `CallImport` conventions. Since these compile to a
+signature unrelated to the source, more care is needed implementing the host
+side, to ensure the proper count of parameters are read and results written to
+the Go stack.
 
 [1]: https://github.com/golang/go/blob/master/misc/wasm/wasm_exec.js
 [2]: https://github.com/golang/go/blob/master/src/cmd/link/internal/wasm/asm.go

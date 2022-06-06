@@ -59,6 +59,7 @@ type builder struct {
 func (b *builder) moduleBuilder() wazero.ModuleBuilder {
 	g := &jsWasm{}
 	return b.r.NewModuleBuilder("go").
+		ExportFunction("debug", g.debug).
 		ExportFunction("runtime.wasmExit", g._wasmExit).
 		ExportFunction("runtime.wasmWrite", g._wasmWrite).
 		ExportFunction("runtime.resetMemoryDataView", g._resetMemoryDataView).
@@ -89,6 +90,12 @@ type jsWasm struct {
 	scheduledTimeouts     map[uint32]*time.Timer // guarded by mux
 
 	closed *uint64
+}
+
+// debug has unknown use, so stubbed.
+//
+// See https://github.com/golang/go/blob/4170084ad12c2e14dc0485d2a17a838e97fee8c7/src/cmd/link/internal/wasm/asm.go#L133-L138
+func (j *jsWasm) debug(ctx context.Context, mod api.Module, sp uint32) {
 }
 
 // _wasmExit converts the GOARCH=wasm stack to be compatible with api.ValueType
