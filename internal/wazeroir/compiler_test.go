@@ -1371,18 +1371,18 @@ func TestCompile_Vec(t *testing.T) {
 		},
 		{
 			name: wasm.OpcodeVecV128StoreName, body: []byte{
-			wasm.OpcodeI32Const,
-			1, 1, 1, 1,
-			wasm.OpcodeVecPrefix,
-			wasm.OpcodeVecV128Const,
-			1, 1, 1, 1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1, 1, 1, 1,
-			wasm.OpcodeVecPrefix,
-			wasm.OpcodeVecV128Store,
-			4,  // alignment
-			10, // offset
-			wasm.OpcodeEnd,
-		},
+				wasm.OpcodeI32Const,
+				1, 1, 1, 1,
+				wasm.OpcodeVecPrefix,
+				wasm.OpcodeVecV128Const,
+				1, 1, 1, 1, 1, 1, 1, 1,
+				1, 1, 1, 1, 1, 1, 1, 1,
+				wasm.OpcodeVecPrefix,
+				wasm.OpcodeVecV128Store,
+				4,  // alignment
+				10, // offset
+				wasm.OpcodeEnd,
+			},
 			expected: &OperationV128Store{Arg: &MemoryArg{Alignment: 4, Offset: 10}},
 		},
 		{name: wasm.OpcodeVecV128Store8LaneName,
@@ -1588,16 +1588,16 @@ func TestCompile_Vec(t *testing.T) {
 		},
 		{
 			name: wasm.OpcodeVecV128i8x16ShuffleName, body: []byte{
-			wasm.OpcodeVecPrefix,
-			wasm.OpcodeVecV128Const, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			wasm.OpcodeVecPrefix,
-			wasm.OpcodeVecV128Const, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			wasm.OpcodeVecPrefix,
-			wasm.OpcodeVecV128i8x16Shuffle,
-			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-			wasm.OpcodeDrop,
-			wasm.OpcodeEnd,
-		},
+				wasm.OpcodeVecPrefix,
+				wasm.OpcodeVecV128Const, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				wasm.OpcodeVecPrefix,
+				wasm.OpcodeVecV128Const, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				wasm.OpcodeVecPrefix,
+				wasm.OpcodeVecV128i8x16Shuffle,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+				wasm.OpcodeDrop,
+				wasm.OpcodeEnd,
+			},
 			expected: &OperationV128Shuffle{Lanes: [16]byte{
 				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
 			}},
