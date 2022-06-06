@@ -90,7 +90,7 @@ type callEngine struct {
 	frames []*callFrame
 }
 
-func (me *moduleEngine) newCallEngine() *callEngine {
+func (e *moduleEngine) newCallEngine() *callEngine {
 	return &callEngine{}
 }
 
@@ -676,16 +676,16 @@ func (e *engine) lowerIR(ir *wazeroir.CompilationResult) (*code, error) {
 }
 
 // Name implements the same method as documented on wasm.ModuleEngine.
-func (me *moduleEngine) Name() string {
-	return me.name
+func (e *moduleEngine) Name() string {
+	return e.name
 }
 
 // CreateFuncElementInstance implements the same method as documented on wasm.ModuleEngine.
-func (me *moduleEngine) CreateFuncElementInstance(indexes []*wasm.Index) *wasm.ElementInstance {
+func (e *moduleEngine) CreateFuncElementInstance(indexes []*wasm.Index) *wasm.ElementInstance {
 	refs := make([]wasm.Reference, len(indexes))
 	for i, index := range indexes {
 		if index != nil {
-			refs[i] = uintptr(unsafe.Pointer(me.functions[*index]))
+			refs[i] = uintptr(unsafe.Pointer(e.functions[*index]))
 		}
 	}
 	return &wasm.ElementInstance{
@@ -695,27 +695,27 @@ func (me *moduleEngine) CreateFuncElementInstance(indexes []*wasm.Index) *wasm.E
 }
 
 // InitializeFuncrefGlobals implements the same method as documented on wasm.InitializeFuncrefGlobals.
-func (me *moduleEngine) InitializeFuncrefGlobals(globals []*wasm.GlobalInstance) {
+func (e *moduleEngine) InitializeFuncrefGlobals(globals []*wasm.GlobalInstance) {
 	for _, g := range globals {
 		if g.Type.ValType == wasm.ValueTypeFuncref {
 			if int64(g.Val) == wasm.GlobalInstanceNullFuncRefValue {
 				g.Val = 0 // Null funcref is expressed as zero.
 			} else {
 				// Lowers the stored function index into the interpreter specific function's opaque pointer.
-				g.Val = uint64(uintptr(unsafe.Pointer(me.functions[g.Val])))
+				g.Val = uint64(uintptr(unsafe.Pointer(e.functions[g.Val])))
 			}
 		}
 	}
 }
 
 // Call implements the same method as documented on wasm.ModuleEngine.
-func (me *moduleEngine) Call(ctx context.Context, m *wasm.CallContext, f *wasm.FunctionInstance, params ...uint64) (results []uint64, err error) {
+func (e *moduleEngine) Call(ctx context.Context, m *wasm.CallContext, f *wasm.FunctionInstance, params ...uint64) (results []uint64, err error) {
 	// Note: The input parameters are pre-validated, so a compiled function is only absent on close. Updates to
 	// code on close aren't locked, neither is this read.
-	compiled := me.functions[f.Idx]
+	compiled := e.functions[f.Idx]
 	if compiled == nil { // Lazy check the cause as it could be because the module was already closed.
 		if err = m.FailIfClosed(); err == nil {
-			panic(fmt.Errorf("BUG: %s.codes[%d] was nil before close", me.name, f.Idx))
+			panic(fmt.Errorf("BUG: %s.codes[%d] was nil before close", e.name, f.Idx))
 		}
 		return
 	}
@@ -726,7 +726,7 @@ func (me *moduleEngine) Call(ctx context.Context, m *wasm.CallContext, f *wasm.F
 		return nil, fmt.Errorf("expected %d params, but passed %d", paramSignature, paramCount)
 	}
 
-	ce := me.newCallEngine()
+	ce := e.newCallEngine()
 	defer func() {
 		// If the module closed during the call, and the call didn't err for another reason, set an ExitError.
 		if err == nil {
@@ -2957,8 +2957,8 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 			ce.pushValue(retHi)
 			frame.pc++
 		case wazeroir.OperationKindV128AddSat:
-			x2hi, _ := ce.popValue(), ce.popValue()
-			x1hi, _ := ce.popValue(), ce.popValue()
+			x2hi, x2Lo := ce.popValue(), ce.popValue()
+			x1hi, x1Lo := ce.popValue(), ce.popValue()
 
 			var retLo, retHi uint64
 			switch op.b1 {
@@ -2966,7 +2966,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				for i := 0; i < 16; i++ {
 					var v int64
 					if i < 8 {
-						v = int64(byte(x1hi>>i*8)) + int64(byte(x2hi>>i*8))
+						v = int64(byte(x1Lo>>i*8)) + int64(byte(x2Lo>>i*8))
 					} else {
 						v = int64(byte(x1hi>>((i-8)*8))) + int64(byte(x2hi>>((i-8)*8)))
 					}
@@ -2995,7 +2995,7 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, callCtx *wasm.CallCont
 				for i := 0; i < 16; i++ {
 					var v int64
 					if i < 4 {
-						v = int64(uint16(x1hi>>i*16)) + int64(uint16(x2hi>>i*16))
+						v = int64(uint16(x1Lo>>i*16)) + int64(uint16(x2Lo>>i*16))
 					} else {
 						v = int64(uint16(x1hi>>((i-4)*8))) + int64(uint16(x2hi>>((i-4)*16)))
 					}

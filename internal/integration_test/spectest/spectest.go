@@ -78,13 +78,23 @@ func (c commandActionVal) String() string {
 	case "i32":
 		v = c.Value.(string)
 	case "f32":
-		ret, _ := strconv.ParseUint(c.Value.(string), 10, 32)
-		v = fmt.Sprintf("%f", math.Float32frombits(uint32(ret)))
+		str := c.Value.(string)
+		if strings.Contains(str, "nan") {
+			v = "nan"
+		} else {
+			ret, _ := strconv.ParseUint(str, 10, 32)
+			v = fmt.Sprintf("%f", math.Float32frombits(uint32(ret)))
+		}
 	case "i64":
 		v = c.Value.(string)
 	case "f64":
-		ret, _ := strconv.ParseUint(c.Value.(string), 10, 64)
-		v = fmt.Sprintf("%f", math.Float64frombits(ret))
+		str := c.Value.(string)
+		if strings.Contains(str, "nan") {
+			v = "nan"
+		} else {
+			ret, _ := strconv.ParseUint(str, 10, 64)
+			v = fmt.Sprintf("%f", math.Float64frombits(ret))
+		}
 	case "externref":
 		if c.Value == "null" {
 			v = "null"
@@ -189,18 +199,36 @@ func (c commandActionVal) toUint64s() (ret []uint64) {
 			panic("BUG")
 		}
 		for i := 0; i < valNum/2; i++ {
-			v, err := strconv.ParseUint(strValues[i].(string), 10, width)
-			if err != nil {
-				panic(err)
+			str := strValues[i].(string)
+			if strings.Contains(str, "nan") {
+				if width == 64 {
+					low |= math.Float64bits(math.NaN()) << (i * width)
+				} else {
+					low |= uint64(math.Float32bits(float32(math.NaN()))) << (i * width)
+				}
+			} else {
+				v, err := strconv.ParseUint(strValues[i].(string), 10, width)
+				if err != nil {
+					panic(err)
+				}
+				low |= v << (i * width)
 			}
-			low |= (v << (i * width))
 		}
 		for i := valNum / 2; i < valNum; i++ {
-			v, err := strconv.ParseUint(strValues[i].(string), 10, width)
-			if err != nil {
-				panic(err)
+			str := strValues[i].(string)
+			if strings.Contains(str, "nan") {
+				if width == 64 {
+					high |= math.Float64bits(math.NaN()) << (i * width)
+				} else {
+					high |= uint64(math.Float32bits(float32(math.NaN()))) << (i * width)
+				}
+			} else {
+				v, err := strconv.ParseUint(str, 10, width)
+				if err != nil {
+					panic(err)
+				}
+				high |= v << ((i - valNum/2) * width)
 			}
-			high |= (v << ((i - valNum/2) * width))
 		}
 		return []uint64{low, high}
 	} else {
