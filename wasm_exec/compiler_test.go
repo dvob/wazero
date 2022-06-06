@@ -65,6 +65,8 @@ func requireGoBin(t *testing.T) string {
 	}
 	// Now, search the path
 	goBin, err := exec.LookPath(binName)
-	require.NoError(t, err, "couldn't find %s in the PATH", goBin)
+	if err != nil {
+		t.Skip("skipping (probably CI is running scratch)")
+	}
 	return goBin
 }
