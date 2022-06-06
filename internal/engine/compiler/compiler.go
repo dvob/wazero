@@ -486,4 +486,41 @@ type compiler interface {
 	//	wasm.OpcodeVecF32x4LeName, wasm.OpcodeVecF32x4GeName, wasm.OpcodeVecF64x2EqName, wasm.OpcodeVecF64x2NeName, wasm.OpcodeVecF64x2LtName,
 	//	wasm.OpcodeVecF64x2GtName, wasm.OpcodeVecF64x2LeName, wasm.OpcodeVecF64x2GeName
 	compileV128Cmp(*wazeroir.OperationV128Cmp) error
+	// compileV128AddSat adds instructions which are equivalent to wasm.OpcodeVecXXXAddSatY.
+	// See wasm.OpcodeVecI8x16AddSatUName wasm.OpcodeVecI8x16AddSatSName wasm.OpcodeVecI16x8AddSatUName wasm.OpcodeVecI16x8AddSatSName
+	compileV128AddSat(*wazeroir.OperationV128AddSat) error
+	// compileV128SubSat adds instructions which are equivalent to wasm.OpcodeVecXXXSubSatY.
+	// See wasm.OpcodeVecI8x16SubSatUName wasm.OpcodeVecI8x16SubSatSName wasm.OpcodeVecI16x8SubSatUName wasm.OpcodeVecI16x8SubSatSName
+	compileV128SubSat(*wazeroir.OperationV128SubSat) error
+	// compileV128Mul adds instructions which are equivalent to wasm.OpcodeVecXXXMul.
+	// See wasm.OpcodeVecF32x4MulName wasm.OpcodeVecF64x2MulName wasm.OpcodeVecI16x8MulName wasm.OpcodeVecI32x4MulName wasm.OpcodeVecI64x2MulName.
+	compileV128Mul(*wazeroir.OperationV128Mul) error
+	// compileV128Div adds instructions which are equivalent to wasm.OpcodeVecXXXDiv.
+	// See wasm.OpcodeVecF32x4DivName wasm.OpcodeVecF64x2DivName.
+	compileV128Div(*wazeroir.OperationV128Div) error
+	// compileV128Neg adds instructions which are equivalent to wasm.OpcodeVecXXXXNeg instructions.
+	// See wasm.OpcodeVecI8x16NegName wasm.OpcodeVecI16x8NegName wasm.OpcodeVecI32x4NegName
+	// 	wasm.OpcodeVecI64x2NegName wasm.OpcodeVecF32x4NegName wasm.OpcodeVecF64x2NegName.
+	compileV128Neg(*wazeroir.OperationV128Neg) error
+	// compileV128Sqrt adds instructions which are equivalent to wasm.OpcodeVecXXXXSqrt instructions.
+	// See wasm.OpcodeVecF32x4SqrtName wasm.OpcodeVecF64x2SqrtName.
+	compileV128Sqrt(*wazeroir.OperationV128Sqrt) error
+	// compileV128Abs adds instructions which are equivalent to wasm.OpcodeVecXXXXAbs instructions.
+	// See wasm.OpcodeVecI8x16AbsName wasm.OpcodeVecI16x8AbsName wasm.OpcodeVecI32x4AbsName
+	// 	wasm.OpcodeVecI64x2AbsName wasm.OpcodeVecF32x4AbsName wasm.OpcodeVecF64x2AbsName.
+	compileV128Abs(*wazeroir.OperationV128Abs) error
+	// compileV128Popcnt adds instructions which are equivalent to wasm.OpcodeVecI8x16PopcntName.
+	compileV128Popcnt(*wazeroir.OperationV128Popcnt) error
+	// compileV128Min adds instructions which are equivalent to wasm.OpcodeVecXXXXMinY instructions.
+	// See wasm.OpcodeVecI8x16MinSName wasm.OpcodeVecI8x16MinUName　wasm.OpcodeVecI16x8MinSName wasm.OpcodeVecI16x8MinUName
+	//	wasm.OpcodeVecI32x4MinSName wasm.OpcodeVecI32x4MinUName　wasm.OpcodeVecI16x8MinSName wasm.OpcodeVecI16x8MinUName
+	//	wasm.OpcodeVecF32x4MinName wasm.OpcodeVecF64x2MinName
+	compileV128Min(*wazeroir.OperationV128Min) error
+	// compileV128Max adds instructions which are equivalent to wasm.OpcodeVecXXXXMaxY instructions.
+	// See wasm.OpcodeVecI8x16MaxSName wasm.OpcodeVecI8x16MaxUName　wasm.OpcodeVecI16x8MaxSName wasm.OpcodeVecI16x8MaxUName
+	//	wasm.OpcodeVecI32x4MaxSName wasm.OpcodeVecI32x4MaxUName　wasm.OpcodeVecI16x8MaxSName wasm.OpcodeVecI16x8MaxUName
+	//	wasm.OpcodeVecF32x4MaxName wasm.OpcodeVecF64x2MaxName
+	compileV128Max(*wazeroir.OperationV128Max) error
+	// compileV128AvgrU adds instructions which are equivalent to wasm.OpcodeVecI8x16AvgrUName.
+	compileV128AvgrU(*wazeroir.OperationV128AvgrU) error
 }

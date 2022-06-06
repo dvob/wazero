@@ -1330,3 +1330,58 @@ func (c *amd64Compiler) compileV128Cmp(o *wazeroir.OperationV128Cmp) error {
 	c.pushVectorRuntimeValueLocationOnRegister(result)
 	return nil
 }
+
+// compileV128AddSat implements compiler.compileV128AddSat for amd64.
+func (c *amd64Compiler) compileV128AddSat(o *wazeroir.OperationV128AddSat) error {
+	return nil
+}
+
+// compileV128SubSat implements compiler.compileV128SubSat for amd64.
+func (c *amd64Compiler) compileV128SubSat(o *wazeroir.OperationV128SubSat) error {
+	return nil
+}
+
+// compileV128Mul implements compiler.compileV128Mul for amd64.
+func (c *amd64Compiler) compileV128Mul(o *wazeroir.OperationV128Mul) error {
+	return nil
+}
+
+// compileV128Div implements compiler.compileV128Div for amd64.
+func (c *amd64Compiler) compileV128Div(o *wazeroir.OperationV128Div) error {
+	return nil
+}
+
+// compileV128Neg implements compiler.compileV128Neg for amd64.
+func (c *amd64Compiler) compileV128Neg(o *wazeroir.OperationV128Neg) error {
+	return nil
+}
+
+// compileV128Sqrt implements compiler.compileV128Sqrt for amd64.
+func (c *amd64Compiler) compileV128Sqrt(o *wazeroir.OperationV128Sqrt) error {
+	return nil
+}
+
+// compileV128Abs implements compiler.compileV128Abs for amd64.
+func (c *amd64Compiler) compileV128Abs(o *wazeroir.OperationV128Abs) error {
+	return nil
+}
+
+// compileV128Popcnt implements compiler.compileV128Popcnt for amd64.
+func (c *amd64Compiler) compileV128Popcnt(o *wazeroir.OperationV128Popcnt) error {
+	return nil
+}
+
+// compileV128Min implements compiler.compileV128Min for amd64.
+func (c *amd64Compiler) compileV128Min(o *wazeroir.OperationV128Min) error {
+	return nil
+}
+
+// compileV128Max implements compiler.compileV128Max for amd64.
+func (c *amd64Compiler) compileV128Max(o *wazeroir.OperationV128Max) error {
+	return nil
+}
+
+// compileV128AvgrU implements compiler.compileV128AvgrU for amd64.
+func (c *amd64Compiler) compileV128AvgrU(o *wazeroir.OperationV128AvgrU) error {
+	return nil
+}
